@@ -13,9 +13,9 @@ import {
 // PostgreSQL connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes("render.com") || process.env.DATABASE_URL?.includes("neon.tech")
+  ssl: process.env.DATABASE_URL?.includes("neon.tech")
     ? { rejectUnauthorized: false }
-    : false,
+    : undefined,
 });
 
 export const db = drizzle(pool);
@@ -84,7 +84,9 @@ async function initDb() {
 }
 
 // Run init immediately
-initDb().catch(console.error);
+initDb().catch((err) => {
+  console.error("DB INIT ERROR:", err.message);
+});
 
 export interface IStorage {
   // Users
