@@ -83,6 +83,16 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.status(403).json({ error: "Coach access required" });
   };
 
+  // ─── DEBUG ─────────────────────────────────────────────────────────────────
+  app.get("/api/debug", async (_req, res) => {
+    const dbUrl = process.env.DATABASE_URL;
+    res.json({
+      hasDbUrl: !!dbUrl,
+      dbUrlPrefix: dbUrl ? dbUrl.substring(0, 30) + "..." : "MISSING",
+      nodeEnv: process.env.NODE_ENV,
+    });
+  });
+
   // ─── AUTH ──────────────────────────────────────────────────────────────────
   app.post("/api/auth/register", async (req, res) => {
     try {
