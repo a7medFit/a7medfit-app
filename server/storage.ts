@@ -108,6 +108,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getAllClients(): Promise<User[]>;
   updateUserAvatar(id: number, initials: string): Promise<User | undefined>;
+  deleteClient(id: number): Promise<void>;
 
   // Schedules
   createSchedule(data: InsertSchedule): Promise<Schedule>;
@@ -160,6 +161,12 @@ export const storage: IStorage = {
   async updateUserAvatar(id, initials) {
     const result = await db.update(users).set({ avatarInitials: initials }).where(eq(users.id, id)).returning();
     return result[0];
+  },
+  async deleteClient(id) {
+    // Delete all related data first
+    await db.delete(completions).where(eq(completions.clientId, id));
+    await db.delete(clientSchedules).where(eq(clientSchedules.clientId, id));
+    await db.delete(users).where(eq(users.id, id));
   },
 
   // Schedules

@@ -206,6 +206,15 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  app.delete("/api/clients/:id", requireCoach, async (req, res) => {
+    try {
+      await storage.deleteClient(Number(req.params.id));
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete client" });
+    }
+  });
+
   // ─── SCHEDULES ─────────────────────────────────────────────────────────────
   app.get("/api/schedules", requireAuth, async (req, res) => {
     try {
