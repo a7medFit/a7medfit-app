@@ -11,8 +11,21 @@ import {
 } from "@shared/schema";
 
 // PostgreSQL connection
+// Render internal DB URLs need port 5432 appended if missing
+function getDbUrl() {
+  const url = process.env.DATABASE_URL || "";
+  // If hostname has no port (internal Render hostname like dpg-xxx-a), add :5432
+  try {
+    const parsed = new URL(url);
+    if (!parsed.port) parsed.port = "5432";
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: getDbUrl(),
   ssl: process.env.DATABASE_URL?.includes("neon.tech")
     ? { rejectUnauthorized: false }
     : undefined,
