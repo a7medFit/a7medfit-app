@@ -1,6 +1,6 @@
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import Database from "better-sqlite3";
-import { eq, and, desc } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import { eq, and } from "drizzle-orm";
 import {
   users, schedules, exercises, clientSchedules, completions,
   type User, type InsertUser,
@@ -10,201 +10,226 @@ import {
   type Completion, type InsertCompletion,
 } from "@shared/schema";
 
-const dbPath = process.env.NODE_ENV === "production" ? "/tmp/a7medfit.db" : "a7medfit.db";
-const sqlite = new Database(dbPath);
-export const db = drizzle(sqlite);
+// PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes("render.com") || process.env.DATABASE_URL?.includes("neon.tech")
+    ? { rejectUnauthorized: false }
+    : false,
+});
 
-// Initialize tables
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'client',
-    avatar_initials TEXT
-  );
-  CREATE TABLE IF NOT EXISTS schedules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    coach_id INTEGER NOT NULL,
-    client_id INTEGER,
-    week_start TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'active'
-  );
-  CREATE TABLE IF NOT EXISTS exercises (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    schedule_id INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    day_of_week INTEGER NOT NULL,
-    order_index INTEGER NOT NULL DEFAULT 0,
-    sets INTEGER,
-    reps INTEGER,
-    duration_seconds INTEGER,
-    notes TEXT,
-    video_url TEXT,
-    video_filename TEXT
-  );
-  CREATE TABLE IF NOT EXISTS client_schedules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    client_id INTEGER NOT NULL,
-    schedule_id INTEGER NOT NULL,
-    assigned_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS completions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    exercise_id INTEGER NOT NULL,
-    client_id INTEGER NOT NULL,
-    schedule_id INTEGER NOT NULL,
-    completed_at TEXT NOT NULL,
-    actual_sets INTEGER,
-    actual_reps INTEGER,
-    actual_weight REAL,
-    notes TEXT,
-    rating INTEGER
-  );
-`);
+export const db = drizzle(pool);
+
+// Initialize tables (create if not exist)
+async function initDb() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'client',
+        avatar_initials TEXT
+      );
+      CREATE TABLE IF NOT EXISTS schedules (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        coach_id INTEGER NOT NULL,
+        client_id INTEGER,
+        week_start TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active'
+      );
+      CREATE TABLE IF NOT EXISTS exercises (
+        id SERIAL PRIMARY KEY,
+        schedule_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        day_of_week INTEGER NOT NULL,
+        order_index INTEGER NOT NULL DEFAULT 0,
+        sets INTEGER,
+        reps INTEGER,
+        duration_seconds INTEGER,
+        notes TEXT,
+        video_url TEXT,
+        video_filename TEXT
+      );
+      CREATE TABLE IF NOT EXISTS client_schedules (
+        id SERIAL PRIMARY KEY,
+        client_id INTEGER NOT NULL,
+        schedule_id INTEGER NOT NULL,
+        assigned_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS completions (
+        id SERIAL PRIMARY KEY,
+        exercise_id INTEGER NOT NULL,
+        client_id INTEGER NOT NULL,
+        schedule_id INTEGER NOT NULL,
+        completed_at TEXT NOT NULL,
+        actual_sets INTEGER,
+        actual_reps INTEGER,
+        actual_weight REAL,
+        notes TEXT,
+        rating INTEGER
+      );
+    `);
+    console.log("Database tables initialized successfully");
+  } catch (err) {
+    console.error("Failed to initialize database tables:", err);
+  } finally {
+    client.release();
+  }
+}
+
+// Run init immediately
+initDb().catch(console.error);
 
 export interface IStorage {
   // Users
-  createUser(data: InsertUser): User;
-  getUserById(id: number): User | undefined;
-  getUserByEmail(email: string): User | undefined;
-  getAllClients(): User[];
-  updateUserAvatar(id: number, initials: string): User | undefined;
+  createUser(data: InsertUser): Promise<User>;
+  getUserById(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getAllClients(): Promise<User[]>;
+  updateUserAvatar(id: number, initials: string): Promise<User | undefined>;
 
   // Schedules
-  createSchedule(data: InsertSchedule): Schedule;
-  getScheduleById(id: number): Schedule | undefined;
-  getSchedulesByCoach(coachId: number): Schedule[];
-  getSchedulesForClient(clientId: number): Schedule[];
-  updateSchedule(id: number, data: Partial<InsertSchedule>): Schedule | undefined;
-  deleteSchedule(id: number): void;
+  createSchedule(data: InsertSchedule): Promise<Schedule>;
+  getScheduleById(id: number): Promise<Schedule | undefined>;
+  getSchedulesByCoach(coachId: number): Promise<Schedule[]>;
+  getSchedulesForClient(clientId: number): Promise<Schedule[]>;
+  updateSchedule(id: number, data: Partial<InsertSchedule>): Promise<Schedule | undefined>;
+  deleteSchedule(id: number): Promise<void>;
 
   // Exercises
-  createExercise(data: InsertExercise): Exercise;
-  getExerciseById(id: number): Exercise | undefined;
-  getExercisesBySchedule(scheduleId: number): Exercise[];
-  updateExercise(id: number, data: Partial<InsertExercise>): Exercise | undefined;
-  deleteExercise(id: number): void;
+  createExercise(data: InsertExercise): Promise<Exercise>;
+  getExerciseById(id: number): Promise<Exercise | undefined>;
+  getExercisesBySchedule(scheduleId: number): Promise<Exercise[]>;
+  updateExercise(id: number, data: Partial<InsertExercise>): Promise<Exercise | undefined>;
+  deleteExercise(id: number): Promise<void>;
 
   // Client assignments
-  assignClientToSchedule(data: InsertClientSchedule): ClientSchedule;
-  unassignClientFromSchedule(clientId: number, scheduleId: number): void;
-  getClientAssignments(scheduleId: number): ClientSchedule[];
-  getClientScheduleIds(clientId: number): number[];
+  assignClientToSchedule(data: InsertClientSchedule): Promise<ClientSchedule>;
+  unassignClientFromSchedule(clientId: number, scheduleId: number): Promise<void>;
+  getClientAssignments(scheduleId: number): Promise<ClientSchedule[]>;
+  getClientScheduleIds(clientId: number): Promise<number[]>;
 
   // Completions
-  createCompletion(data: InsertCompletion): Completion;
-  getCompletionsByClient(clientId: number): Completion[];
-  getCompletionsBySchedule(scheduleId: number): Completion[];
-  getCompletionsByExercise(exerciseId: number): Completion[];
-  getCompletionByClientAndExercise(clientId: number, exerciseId: number): Completion | undefined;
-  getAllCompletions(): Completion[];
+  createCompletion(data: InsertCompletion): Promise<Completion>;
+  getCompletionsByClient(clientId: number): Promise<Completion[]>;
+  getCompletionsBySchedule(scheduleId: number): Promise<Completion[]>;
+  getCompletionsByExercise(exerciseId: number): Promise<Completion[]>;
+  getCompletionByClientAndExercise(clientId: number, exerciseId: number): Promise<Completion | undefined>;
+  getAllCompletions(): Promise<Completion[]>;
 }
 
 export const storage: IStorage = {
   // Users
-  createUser(data) {
+  async createUser(data) {
     const initials = data.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-    return db.insert(users).values({ ...data, avatarInitials: initials }).returning().get();
+    const result = await db.insert(users).values({ ...data, avatarInitials: initials }).returning();
+    return result[0];
   },
-  getUserById(id) {
-    return db.select().from(users).where(eq(users.id, id)).get();
+  async getUserById(id) {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
   },
-  getUserByEmail(email) {
-    return db.select().from(users).where(eq(users.email, email)).get();
+  async getUserByEmail(email) {
+    const result = await db.select().from(users).where(eq(users.email, email));
+    return result[0];
   },
-  getAllClients() {
-    return db.select().from(users).where(eq(users.role, "client")).all();
+  async getAllClients() {
+    return db.select().from(users).where(eq(users.role, "client"));
   },
-  updateUserAvatar(id, initials) {
-    return db.update(users).set({ avatarInitials: initials }).where(eq(users.id, id)).returning().get();
+  async updateUserAvatar(id, initials) {
+    const result = await db.update(users).set({ avatarInitials: initials }).where(eq(users.id, id)).returning();
+    return result[0];
   },
 
   // Schedules
-  createSchedule(data) {
-    return db.insert(schedules).values(data).returning().get();
+  async createSchedule(data) {
+    const result = await db.insert(schedules).values(data).returning();
+    return result[0];
   },
-  getScheduleById(id) {
-    return db.select().from(schedules).where(eq(schedules.id, id)).get();
+  async getScheduleById(id) {
+    const result = await db.select().from(schedules).where(eq(schedules.id, id));
+    return result[0];
   },
-  getSchedulesByCoach(coachId) {
-    return db.select().from(schedules).where(eq(schedules.coachId, coachId)).all();
+  async getSchedulesByCoach(coachId) {
+    return db.select().from(schedules).where(eq(schedules.coachId, coachId));
   },
-  getSchedulesForClient(clientId) {
-    const ids = storage.getClientScheduleIds(clientId);
+  async getSchedulesForClient(clientId) {
+    const ids = await storage.getClientScheduleIds(clientId);
     if (ids.length === 0) return [];
-    return db.select().from(schedules).all().filter((s) => ids.includes(s.id));
+    const all = await db.select().from(schedules);
+    return all.filter((s) => ids.includes(s.id));
   },
-  updateSchedule(id, data) {
-    return db.update(schedules).set(data).where(eq(schedules.id, id)).returning().get();
+  async updateSchedule(id, data) {
+    const result = await db.update(schedules).set(data).where(eq(schedules.id, id)).returning();
+    return result[0];
   },
-  deleteSchedule(id) {
-    db.delete(schedules).where(eq(schedules.id, id)).run();
+  async deleteSchedule(id) {
+    await db.delete(schedules).where(eq(schedules.id, id));
   },
 
   // Exercises
-  createExercise(data) {
-    return db.insert(exercises).values(data).returning().get();
+  async createExercise(data) {
+    const result = await db.insert(exercises).values(data).returning();
+    return result[0];
   },
-  getExerciseById(id) {
-    return db.select().from(exercises).where(eq(exercises.id, id)).get();
+  async getExerciseById(id) {
+    const result = await db.select().from(exercises).where(eq(exercises.id, id));
+    return result[0];
   },
-  getExercisesBySchedule(scheduleId) {
-    return db.select().from(exercises).where(eq(exercises.scheduleId, scheduleId)).all();
+  async getExercisesBySchedule(scheduleId) {
+    return db.select().from(exercises).where(eq(exercises.scheduleId, scheduleId));
   },
-  updateExercise(id, data) {
-    return db.update(exercises).set(data).where(eq(exercises.id, id)).returning().get();
+  async updateExercise(id, data) {
+    const result = await db.update(exercises).set(data).where(eq(exercises.id, id)).returning();
+    return result[0];
   },
-  deleteExercise(id) {
-    db.delete(exercises).where(eq(exercises.id, id)).run();
+  async deleteExercise(id) {
+    await db.delete(exercises).where(eq(exercises.id, id));
   },
 
   // Client assignments
-  assignClientToSchedule(data) {
-    return db.insert(clientSchedules).values(data).returning().get();
+  async assignClientToSchedule(data) {
+    const result = await db.insert(clientSchedules).values(data).returning();
+    return result[0];
   },
-  unassignClientFromSchedule(clientId, scheduleId) {
-    db.delete(clientSchedules)
-      .where(and(eq(clientSchedules.clientId, clientId), eq(clientSchedules.scheduleId, scheduleId)))
-      .run();
+  async unassignClientFromSchedule(clientId, scheduleId) {
+    await db.delete(clientSchedules)
+      .where(and(eq(clientSchedules.clientId, clientId), eq(clientSchedules.scheduleId, scheduleId)));
   },
-  getClientAssignments(scheduleId) {
-    return db.select().from(clientSchedules).where(eq(clientSchedules.scheduleId, scheduleId)).all();
+  async getClientAssignments(scheduleId) {
+    return db.select().from(clientSchedules).where(eq(clientSchedules.scheduleId, scheduleId));
   },
-  getClientScheduleIds(clientId) {
-    return db
-      .select()
-      .from(clientSchedules)
-      .where(eq(clientSchedules.clientId, clientId))
-      .all()
-      .map((cs) => cs.scheduleId);
+  async getClientScheduleIds(clientId) {
+    const result = await db.select().from(clientSchedules).where(eq(clientSchedules.clientId, clientId));
+    return result.map((cs) => cs.scheduleId);
   },
 
   // Completions
-  createCompletion(data) {
-    return db.insert(completions).values(data).returning().get();
+  async createCompletion(data) {
+    const result = await db.insert(completions).values(data).returning();
+    return result[0];
   },
-  getCompletionsByClient(clientId) {
-    return db.select().from(completions).where(eq(completions.clientId, clientId)).all();
+  async getCompletionsByClient(clientId) {
+    return db.select().from(completions).where(eq(completions.clientId, clientId));
   },
-  getCompletionsBySchedule(scheduleId) {
-    return db.select().from(completions).where(eq(completions.scheduleId, scheduleId)).all();
+  async getCompletionsBySchedule(scheduleId) {
+    return db.select().from(completions).where(eq(completions.scheduleId, scheduleId));
   },
-  getCompletionsByExercise(exerciseId) {
-    return db.select().from(completions).where(eq(completions.exerciseId, exerciseId)).all();
+  async getCompletionsByExercise(exerciseId) {
+    return db.select().from(completions).where(eq(completions.exerciseId, exerciseId));
   },
-  getCompletionByClientAndExercise(clientId, exerciseId) {
-    return db
-      .select()
-      .from(completions)
-      .where(and(eq(completions.clientId, clientId), eq(completions.exerciseId, exerciseId)))
-      .get();
+  async getCompletionByClientAndExercise(clientId, exerciseId) {
+    const result = await db.select().from(completions)
+      .where(and(eq(completions.clientId, clientId), eq(completions.exerciseId, exerciseId)));
+    return result[0];
   },
-  getAllCompletions() {
-    return db.select().from(completions).all();
+  async getAllCompletions() {
+    return db.select().from(completions);
   },
 };

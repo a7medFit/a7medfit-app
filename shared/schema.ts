@@ -1,10 +1,10 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { pgTable, text, integer, real, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Users (both coach and clients)
-export const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
@@ -17,8 +17,8 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 // Schedules (weekly workout plans)
-export const schedules = sqliteTable("schedules", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const schedules = pgTable("schedules", {
+  id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   coachId: integer("coach_id").notNull(),
@@ -32,12 +32,12 @@ export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type Schedule = typeof schedules.$inferSelect;
 
 // Exercises within a schedule
-export const exercises = sqliteTable("exercises", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const exercises = pgTable("exercises", {
+  id: serial("id").primaryKey(),
   scheduleId: integer("schedule_id").notNull(),
   title: text("title").notNull(),
   description: text("description"),
-  dayOfWeek: integer("day_of_week").notNull(), // 0=Mon, 1=Tue, ...6=Sun
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sun, 1=Mon, ...6=Sat
   orderIndex: integer("order_index").notNull().default(0),
   sets: integer("sets"),
   reps: integer("reps"),
@@ -52,8 +52,8 @@ export type InsertExercise = z.infer<typeof insertExerciseSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 
 // Client-Schedule assignments
-export const clientSchedules = sqliteTable("client_schedules", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const clientSchedules = pgTable("client_schedules", {
+  id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),
   scheduleId: integer("schedule_id").notNull(),
   assignedAt: text("assigned_at").notNull(),
@@ -64,8 +64,8 @@ export type InsertClientSchedule = z.infer<typeof insertClientScheduleSchema>;
 export type ClientSchedule = typeof clientSchedules.$inferSelect;
 
 // Exercise completions (client logs)
-export const completions = sqliteTable("completions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const completions = pgTable("completions", {
+  id: serial("id").primaryKey(),
   exerciseId: integer("exercise_id").notNull(),
   clientId: integer("client_id").notNull(),
   scheduleId: integer("schedule_id").notNull(),
