@@ -10,7 +10,8 @@ import {
   type Completion, type InsertCompletion,
 } from "@shared/schema";
 
-const sqlite = new Database("a7medfit.db");
+const dbPath = process.env.NODE_ENV === "production" ? "/tmp/a7medfit.db" : "a7medfit.db";
+const sqlite = new Database(dbPath);
 export const db = drizzle(sqlite);
 
 // Initialize tables
