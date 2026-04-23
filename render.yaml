@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: a7medfit
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        value: a7medfit-secret-2026
