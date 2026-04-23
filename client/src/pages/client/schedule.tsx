@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function ClientSchedule() {
   const [, params] = useRoute("/schedule/:id");
@@ -22,7 +22,7 @@ export default function ClientSchedule() {
   const { toast } = useToast();
   const [logExercise, setLogExercise] = useState<any | null>(null);
   const [logForm, setLogForm] = useState({ actualSets: "", actualReps: "", actualWeight: "", notes: "", rating: "" });
-  const [activeDay, setActiveDay] = useState((new Date().getDay() + 6) % 7);
+  const [activeDay, setActiveDay] = useState(new Date().getDay()); // Sun=0
   const [videoEx, setVideoEx] = useState<any | null>(null);
 
   const { data: schedule } = useQuery<any>({ queryKey: [`/api/schedules/${scheduleId}`] });

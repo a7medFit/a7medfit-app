@@ -7,14 +7,14 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar, CheckCircle2, Dumbbell, ArrowRight, Trophy } from "lucide-react";
 import { Link } from "wouter";
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function ClientDashboard() {
   const { data: user } = useQuery<any>({ queryKey: ["/api/auth/me"] });
   const { data: schedules = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/schedules"] });
   const { data: completions = [] } = useQuery<any[]>({ queryKey: ["/api/completions"] });
 
-  const todayDay = (new Date().getDay() + 6) % 7; // Mon=0
+  const todayDay = new Date().getDay(); // Sun=0
 
   return (
     <Layout role="client">
