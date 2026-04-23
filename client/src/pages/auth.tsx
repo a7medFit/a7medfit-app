@@ -165,17 +165,7 @@ export default function AuthPage() {
                       <Input id="reg-password" type="password" placeholder="Min. 6 characters" data-testid="input-register-password" {...registerForm.register("password")} />
                       {registerForm.formState.errors.password && <p className="text-destructive text-xs">{registerForm.formState.errors.password.message}</p>}
                     </div>
-                    <div className="space-y-2">
-                      <Label>I am a...</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {(["client", "coach"] as const).map((r) => (
-                          <label key={r} className={`flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${registerForm.watch("role") === r ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/50"}`} data-testid={`radio-role-${r}`}>
-                            <input type="radio" value={r} className="sr-only" {...registerForm.register("role")} />
-                            <span className="font-medium capitalize">{r}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
+                    <input type="hidden" value="client" {...registerForm.register("role")} />
                     <Button type="submit" className="w-full" disabled={registerMut.isPending} data-testid="button-register">
                       {registerMut.isPending ? "Creating account..." : "Create Account"}
                     </Button>

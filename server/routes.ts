@@ -121,6 +121,27 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.status(403).json({ error: "Coach access required" });
   };
 
+  // ─── SECRET COACH SETUP (one-time, protected by env secret) ────────────────
+  app.post("/api/auth/setup-coach", async (req, res) => {
+    try {
+      const { name, email, password, secret } = req.body;
+      if (secret !== (process.env.COACH_SECRET || "a7medfit-coach-2026")) {
+        return res.status(403).json({ error: "Invalid secret" });
+      }
+      const existing = await storage.getUserByEmail(email);
+      if (existing) return res.status(409).json({ error: "Email already registered" });
+      const user = await storage.createUser({ name, email, password, role: "coach" });
+      req.login(user, (err) => {
+        if (err) return res.status(500).json({ error: "Login error" });
+        const { password: _, ...safeUser } = user;
+        res.json(safeUser);
+      });
+    } catch (err) {
+      console.error("Setup coach error:", err);
+      res.status(500).json({ error: "Failed to create coach" });
+    }
+  });
+
   // ─── KEEP-ALIVE (prevents Render free tier from sleeping) ──────────────────
   app.get("/api/ping", (_req, res) => res.json({ ok: true }));
 
@@ -139,6 +160,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const parsed = insertUserSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      if (parsed.data.role === "coach") return res.status(403).json({ error: "Coach accounts must be created by the admin" });
       const existing = await storage.getUserByEmail(parsed.data.email);
       if (existing) return res.status(409).json({ error: "Email already registered" });
       const user = await storage.createUser(parsed.data);
