@@ -7,30 +7,68 @@ import { Strategy as LocalStrategy } from "passport-local";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { v2 as cloudinary } from "cloudinary";
 import { storage } from "./storage";
 import { insertUserSchema, insertScheduleSchema, insertExerciseSchema, insertCompletionSchema } from "@shared/schema";
 import { z } from "zod";
 
 const MemoryStore = createMemoryStore(session);
 
-// Multer setup for video uploads
+// Cloudinary config (only if credentials are set)
+const useCloudinary = !!(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+if (useCloudinary) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
+
+// Multer — use memory storage when Cloudinary is available, disk otherwise
 const uploadDir = process.env.NODE_ENV === "production" ? "/tmp/uploads" : path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadDir,
-    filename: (_req, file, cb) => {
-      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      cb(null, unique + path.extname(file.originalname));
-    },
-  }),
+  storage: useCloudinary
+    ? multer.memoryStorage()
+    : multer.diskStorage({
+        destination: uploadDir,
+        filename: (_req, file, cb) => {
+          const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          cb(null, unique + path.extname(file.originalname));
+        },
+      }),
   limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith("video/")) cb(null, true);
     else cb(new Error("Only video files allowed"));
   },
 });
+
+// Upload video — returns { url, filename }
+async function uploadVideo(file: Express.Multer.File): Promise<{ url: string; filename: string }> {
+  if (useCloudinary) {
+    // Upload buffer to Cloudinary
+    const result = await new Promise<any>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: "video", folder: "a7medfit", use_filename: true },
+        (err, res) => (err ? reject(err) : resolve(res))
+      );
+      stream.end(file.buffer);
+    });
+    return { url: result.secure_url, filename: file.originalname };
+  } else {
+    // Local disk fallback
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const filename = unique + path.extname(file.originalname);
+    fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+    return { url: `/api/videos/${filename}`, filename: file.originalname };
+  }
+}
 
 declare module "express-session" {
   interface SessionData {
@@ -83,15 +121,18 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.status(403).json({ error: "Coach access required" });
   };
 
-  // ─── DEBUG ─────────────────────────────────────────────────────────────────
-  app.get("/api/debug", async (_req, res) => {
-    const dbUrl = process.env.DATABASE_URL;
-    res.json({
-      hasDbUrl: !!dbUrl,
-      dbUrlPrefix: dbUrl ? dbUrl.substring(0, 30) + "..." : "MISSING",
-      nodeEnv: process.env.NODE_ENV,
-    });
-  });
+  // ─── KEEP-ALIVE (prevents Render free tier from sleeping) ──────────────────
+  app.get("/api/ping", (_req, res) => res.json({ ok: true }));
+
+  // Self-ping every 10 minutes to stay awake
+  const appUrl = process.env.RENDER_EXTERNAL_URL || "";
+  if (appUrl) {
+    setInterval(async () => {
+      try {
+        await fetch(`${appUrl}/api/ping`);
+      } catch (_) {}
+    }, 10 * 60 * 1000); // every 10 minutes
+  }
 
   // ─── AUTH ──────────────────────────────────────────────────────────────────
   app.post("/api/auth/register", async (req, res) => {
@@ -107,6 +148,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
         res.json(safeUser);
       });
     } catch (err) {
+      console.error("Register error:", err);
       res.status(500).json({ error: "Registration failed" });
     }
   });
@@ -210,8 +252,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const body = { ...req.body, scheduleId: Number(req.params.id) };
       if (req.file) {
-        body.videoUrl = `/api/videos/${req.file.filename}`;
-        body.videoFilename = req.file.originalname;
+        const { url, filename } = await uploadVideo(req.file);
+        body.videoUrl = url;
+        body.videoFilename = filename;
       }
       if (body.sets) body.sets = parseInt(body.sets);
       if (body.reps) body.reps = parseInt(body.reps);
@@ -223,6 +266,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
       res.json(await storage.createExercise(parsed.data));
     } catch (err) {
+      console.error("Create exercise error:", err);
       res.status(500).json({ error: "Failed to create exercise" });
     }
   });
@@ -231,8 +275,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const body = { ...req.body };
       if (req.file) {
-        body.videoUrl = `/api/videos/${req.file.filename}`;
-        body.videoFilename = req.file.originalname;
+        const { url, filename } = await uploadVideo(req.file);
+        body.videoUrl = url;
+        body.videoFilename = filename;
       }
       if (body.sets) body.sets = parseInt(body.sets);
       if (body.reps) body.reps = parseInt(body.reps);
@@ -254,7 +299,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  // Video streaming
+  // Video streaming (local fallback only)
   app.get("/api/videos/:filename", requireAuth, (req, res) => {
     const filePath = path.join(uploadDir, req.params.filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Video not found" });
@@ -369,7 +414,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // ─── COACH PROGRESS OVERVIEW ───────────────────────────────────────────────
   app.get("/api/coach/progress", requireCoach, async (req, res) => {
     try {
-      const user = req.user as any;
       const [clients, allCompletions] = await Promise.all([
         storage.getAllClients(),
         storage.getAllCompletions(),
