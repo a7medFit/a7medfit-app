@@ -85,8 +85,10 @@ async function initDb() {
         actual_reps INTEGER,
         actual_weight REAL,
         notes TEXT,
-        rating INTEGER
+        rating INTEGER,
+        sets_data TEXT
       );
+      ALTER TABLE completions ADD COLUMN IF NOT EXISTS sets_data TEXT;
     `);
     console.log("Database tables initialized successfully");
   } catch (err) {

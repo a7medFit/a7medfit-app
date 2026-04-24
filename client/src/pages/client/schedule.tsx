@@ -3,42 +3,68 @@ import { useRoute, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Layout from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell, Star } from "lucide-react";
+import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+interface SetRow { reps: string; weight: string; }
 
 export default function ClientSchedule() {
   const [, params] = useRoute("/schedule/:id");
   const scheduleId = Number(params?.id);
   const { toast } = useToast();
   const [logExercise, setLogExercise] = useState<any | null>(null);
-  const [logForm, setLogForm] = useState({ actualSets: "", actualReps: "", actualWeight: "", notes: "", rating: "" });
-  const [activeDay, setActiveDay] = useState(new Date().getDay()); // Sun=0
+  const [sets, setSets] = useState<SetRow[]>([{ reps: "", weight: "" }, { reps: "", weight: "" }, { reps: "", weight: "" }]);
+  const [notes, setNotes] = useState("");
+  const [rating, setRating] = useState("");
+  const [activeDay, setActiveDay] = useState(new Date().getDay());
   const [videoEx, setVideoEx] = useState<any | null>(null);
 
   const { data: schedule } = useQuery<any>({ queryKey: [`/api/schedules/${scheduleId}`] });
   const { data: exercises = [] } = useQuery<any[]>({ queryKey: [`/api/schedules/${scheduleId}/exercises`] });
   const { data: completions = [] } = useQuery<any[]>({ queryKey: ["/api/completions"] });
 
+  const openLog = (ex: any) => {
+    // Pre-fill with coach's prescribed reps
+    setSets([
+      { reps: ex.reps ? String(ex.reps) : "", weight: "" },
+      { reps: ex.reps ? String(ex.reps) : "", weight: "" },
+      { reps: ex.reps ? String(ex.reps) : "", weight: "" },
+    ]);
+    setNotes("");
+    setRating("");
+    setLogExercise(ex);
+  };
+
+  const updateSet = (i: number, field: "reps" | "weight", val: string) => {
+    setSets((prev) => prev.map((s, idx) => idx === i ? { ...s, [field]: val } : s));
+  };
+
   const logMut = useMutation({
     mutationFn: async (ex: any) => {
+      const filledSets = sets.filter((s) => s.reps || s.weight);
+      const totalReps = filledSets.reduce((acc, s) => acc + (parseInt(s.reps) || 0), 0);
+      const avgWeight = filledSets.length > 0
+        ? filledSets.reduce((acc, s) => acc + (parseFloat(s.weight) || 0), 0) / filledSets.length
+        : 0;
       const body = {
         exerciseId: ex.id,
         scheduleId,
-        actualSets: logForm.actualSets ? parseInt(logForm.actualSets) : undefined,
-        actualReps: logForm.actualReps ? parseInt(logForm.actualReps) : undefined,
-        actualWeight: logForm.actualWeight ? parseFloat(logForm.actualWeight) : undefined,
-        notes: logForm.notes || undefined,
-        rating: logForm.rating ? parseInt(logForm.rating) : undefined,
+        actualSets: filledSets.length || undefined,
+        actualReps: totalReps || undefined,
+        actualWeight: avgWeight || undefined,
+        setsData: JSON.stringify(sets),
+        notes: notes || undefined,
+        rating: rating ? parseInt(rating) : undefined,
       };
       const res = await apiRequest("POST", "/api/completions", body);
       if (!res.ok) throw new Error("Failed to log completion");
@@ -47,15 +73,25 @@ export default function ClientSchedule() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/completions"] });
       setLogExercise(null);
-      setLogForm({ actualSets: "", actualReps: "", actualWeight: "", notes: "", rating: "" });
       toast({ title: "Exercise logged!", description: "Great work, keep it up!" });
     },
     onError: () => toast({ title: "Error", description: "Failed to log exercise", variant: "destructive" }),
   });
 
   const isDone = (exId: number) => completions.some((c: any) => c.exerciseId === exId);
+  const getCompletion = (exId: number) => completions.find((c: any) => c.exerciseId === exId);
+  const getLastSets = (exId: number): SetRow[] | null => {
+    const c = getCompletion(exId);
+    if (!c?.setsData) return null;
+    try { return JSON.parse(c.setsData); } catch { return null; }
+  };
+
   const dayExercises = exercises.filter((e: any) => e.dayOfWeek === activeDay);
   const daysWithExercises = DAYS.map((d, i) => ({ day: d, index: i, count: exercises.filter((e: any) => e.dayOfWeek === i).length })).filter((d) => d.count > 0);
+
+  const totalEx = exercises.length;
+  const doneEx = completions.filter((c: any) => c.scheduleId === scheduleId).length;
+  const pct = totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
 
   if (!schedule) {
     return (
@@ -69,10 +105,6 @@ export default function ClientSchedule() {
       </Layout>
     );
   }
-
-  const totalEx = exercises.length;
-  const doneEx = completions.filter((c: any) => c.scheduleId === scheduleId).length;
-  const pct = totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
 
   return (
     <Layout role="client">
@@ -89,18 +121,11 @@ export default function ClientSchedule() {
               <h1 className="text-xl font-bold">{schedule.title}</h1>
               {schedule.description && <p className="text-muted-foreground text-sm mt-1">{schedule.description}</p>}
             </div>
-            <Badge variant={pct >= 100 ? "default" : "secondary"} className="shrink-0">
-              {pct}% done
-            </Badge>
+            <Badge variant={pct >= 100 ? "default" : "secondary"} className="shrink-0">{pct}% done</Badge>
           </div>
-          {/* Progress bar */}
           <div className="mt-4 flex items-center gap-3">
             <div className="flex-1 bg-muted rounded-full h-2">
-              <div
-                className="h-2 rounded-full bg-primary transition-all duration-500"
-                style={{ width: `${pct}%` }}
-                data-testid="progress-bar"
-              />
+              <div className="h-2 rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} data-testid="progress-bar" />
             </div>
             <span className="text-xs text-muted-foreground whitespace-nowrap">{doneEx}/{totalEx} exercises</span>
           </div>
@@ -116,9 +141,7 @@ export default function ClientSchedule() {
                 data-testid={`day-tab-${index}`}
                 className={cn(
                   "flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  activeDay === index
-                    ? "bg-primary text-white"
-                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                  activeDay === index ? "bg-primary text-white" : "bg-muted hover:bg-muted/80 text-muted-foreground"
                 )}
               >
                 {day.slice(0, 3)} ({count})
@@ -139,21 +162,14 @@ export default function ClientSchedule() {
           ) : (
             dayExercises.map((ex: any) => {
               const done = isDone(ex.id);
-              const myCompletion = completions.find((c: any) => c.exerciseId === ex.id);
+              const myCompletion = getCompletion(ex.id);
+              const lastSets = getLastSets(ex.id);
               return (
-                <Card
-                  key={ex.id}
-                  data-testid={`exercise-card-${ex.id}`}
-                  className={cn(done && "border-green-500/40 bg-green-50/30 dark:bg-green-950/10")}
-                >
+                <Card key={ex.id} data-testid={`exercise-card-${ex.id}`} className={cn(done && "border-green-500/40 bg-green-50/30 dark:bg-green-950/10")}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 shrink-0">
-                        {done ? (
-                          <CheckCircle2 className="w-5 h-5 text-green-500" />
-                        ) : (
-                          <Circle className="w-5 h-5 text-muted-foreground/40" />
-                        )}
+                        {done ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Circle className="w-5 h-5 text-muted-foreground/40" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -169,32 +185,12 @@ export default function ClientSchedule() {
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {ex.videoUrl && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 gap-1 text-xs"
-                                onClick={() => setVideoEx(ex)}
-                                data-testid={`button-watch-video-${ex.id}`}
-                              >
+                              <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setVideoEx(ex)} data-testid={`button-watch-video-${ex.id}`}>
                                 <Play className="w-3 h-3" /> Watch
                               </Button>
                             )}
                             {!done && (
-                              <Button
-                                size="sm"
-                                className="h-7 gap-1 text-xs"
-                                onClick={() => {
-                                  setLogExercise(ex);
-                                  setLogForm({
-                                    actualSets: ex.sets ? String(ex.sets) : "",
-                                    actualReps: ex.reps ? String(ex.reps) : "",
-                                    actualWeight: "",
-                                    notes: "",
-                                    rating: "",
-                                  });
-                                }}
-                                data-testid={`button-log-exercise-${ex.id}`}
-                              >
+                              <Button size="sm" className="h-7 text-xs" onClick={() => openLog(ex)} data-testid={`button-log-exercise-${ex.id}`}>
                                 Log
                               </Button>
                             )}
@@ -204,28 +200,24 @@ export default function ClientSchedule() {
                         {ex.description && <p className="text-xs text-muted-foreground mt-2">{ex.description}</p>}
                         {ex.notes && <p className="text-xs text-muted-foreground/70 mt-1 italic">{ex.notes}</p>}
 
-                        {/* My logged data */}
-                        {done && myCompletion && (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {myCompletion.actualSets && (
-                              <Badge variant="outline" className="text-xs gap-1">
-                                <Dumbbell className="w-3 h-3" />
-                                {myCompletion.actualSets}×{myCompletion.actualReps} reps
-                              </Badge>
+                        {/* Logged sets breakdown */}
+                        {done && lastSets && (
+                          <div className="mt-3 space-y-1.5">
+                            <div className="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground">
+                              <span>Set</span><span>Reps</span><span>Weight</span>
+                            </div>
+                            {lastSets.map((s, i) => (s.reps || s.weight) && (
+                              <div key={i} className="grid grid-cols-3 gap-2 text-xs bg-muted/40 rounded px-2 py-1">
+                                <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                                <span>{s.reps || "—"} reps</span>
+                                <span>{s.weight ? `${s.weight} kg` : "—"}</span>
+                              </div>
+                            ))}
+                            {myCompletion?.rating && (
+                              <div className="text-xs text-muted-foreground mt-1">{"⭐".repeat(myCompletion.rating)} difficulty</div>
                             )}
-                            {myCompletion.actualWeight && (
-                              <Badge variant="outline" className="text-xs gap-1">
-                                <Weight className="w-3 h-3" />
-                                {myCompletion.actualWeight}kg
-                              </Badge>
-                            )}
-                            {myCompletion.rating && (
-                              <Badge variant="outline" className="text-xs">
-                                {"⭐".repeat(myCompletion.rating)}
-                              </Badge>
-                            )}
-                            {myCompletion.notes && (
-                              <span className="text-xs text-muted-foreground italic">"{myCompletion.notes}"</span>
+                            {myCompletion?.notes && (
+                              <p className="text-xs text-muted-foreground italic">"{myCompletion.notes}"</p>
                             )}
                           </div>
                         )}
@@ -246,38 +238,53 @@ export default function ClientSchedule() {
             <DialogTitle>Log: {logExercise?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label>Sets done</Label>
-                <Input
-                  type="number"
-                  placeholder={logExercise?.sets ? String(logExercise.sets) : "3"}
-                  value={logForm.actualSets}
-                  onChange={(e) => setLogForm({ ...logForm, actualSets: e.target.value })}
-                  data-testid="input-actual-sets"
-                />
+
+            {/* Sets table */}
+            <div className="space-y-2">
+              {/* Header */}
+              <div className="grid grid-cols-[40px_1fr_1fr] gap-2 text-xs font-semibold text-muted-foreground px-1">
+                <span>Set</span>
+                <span>Reps</span>
+                <span>Weight (kg)</span>
               </div>
-              <div className="space-y-1.5">
-                <Label>Reps done</Label>
-                <Input
-                  type="number"
-                  placeholder={logExercise?.reps ? String(logExercise.reps) : "10"}
-                  value={logForm.actualReps}
-                  onChange={(e) => setLogForm({ ...logForm, actualReps: e.target.value })}
-                  data-testid="input-actual-reps"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Weight (kg)</Label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  placeholder="0"
-                  value={logForm.actualWeight}
-                  onChange={(e) => setLogForm({ ...logForm, actualWeight: e.target.value })}
-                  data-testid="input-actual-weight"
-                />
-              </div>
+
+              {/* 3 rows */}
+              {sets.map((s, i) => {
+                const last = logExercise ? getLastSets(logExercise.id) : null;
+                const lastRow = last?.[i];
+                return (
+                  <div key={i} className="space-y-0.5">
+                    <div className="grid grid-cols-[40px_1fr_1fr] gap-2 items-center">
+                      <span className="text-sm font-bold text-primary">#{i + 1}</span>
+                      <Input
+                        type="number"
+                        placeholder="Reps"
+                        value={s.reps}
+                        onChange={(e) => updateSet(i, "reps", e.target.value)}
+                        className="h-10"
+                        data-testid={`input-set-${i}-reps`}
+                      />
+                      <Input
+                        type="number"
+                        step="0.5"
+                        placeholder="kg"
+                        value={s.weight}
+                        onChange={(e) => updateSet(i, "weight", e.target.value)}
+                        className="h-10"
+                        data-testid={`input-set-${i}-weight`}
+                      />
+                    </div>
+                    {/* Last session hint */}
+                    {lastRow && (lastRow.reps || lastRow.weight) && (
+                      <div className="grid grid-cols-[40px_1fr_1fr] gap-2 px-0.5">
+                        <span />
+                        <span className="text-[11px] text-muted-foreground/60">Last: {lastRow.reps || "—"} reps</span>
+                        <span className="text-[11px] text-muted-foreground/60">Last: {lastRow.weight ? `${lastRow.weight}kg` : "—"}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Rating */}
@@ -288,12 +295,10 @@ export default function ClientSchedule() {
                   <button
                     key={r}
                     type="button"
-                    onClick={() => setLogForm({ ...logForm, rating: String(r) })}
+                    onClick={() => setRating(String(r))}
                     className={cn(
                       "w-9 h-9 rounded-lg border text-sm font-medium transition-colors",
-                      logForm.rating === String(r)
-                        ? "bg-primary text-white border-primary"
-                        : "border-border hover:border-primary/50"
+                      rating === String(r) ? "bg-primary text-white border-primary" : "border-border hover:border-primary/50"
                     )}
                     data-testid={`rating-${r}`}
                   >
@@ -307,8 +312,8 @@ export default function ClientSchedule() {
               <Label>Notes (optional)</Label>
               <Textarea
                 placeholder="How did it feel? Any adjustments..."
-                value={logForm.notes}
-                onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 data-testid="input-completion-notes"
               />

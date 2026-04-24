@@ -75,6 +75,7 @@ export const completions = pgTable("completions", {
   actualWeight: real("actual_weight"), // in kg
   notes: text("notes"),
   rating: integer("rating"), // 1-5 difficulty/effort
+  setsData: text("sets_data"), // JSON array of {reps, weight} per set
 });
 
 export const insertCompletionSchema = createInsertSchema(completions).omit({ id: true });
