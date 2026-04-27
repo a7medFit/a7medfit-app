@@ -8,9 +8,13 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
+import bcrypt from "bcrypt";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { insertUserSchema, insertScheduleSchema, insertExerciseSchema, insertCompletionSchema } from "@shared/schema";
 import { z } from "zod";
+
+const BCRYPT_ROUNDS = 10;
 
 const MemoryStore = createMemoryStore(session);
 
@@ -77,14 +81,31 @@ declare module "express-session" {
 }
 
 export function registerRoutes(httpServer: Server, app: Express) {
+  // HTTPS redirect
+  app.use((req, res, next) => {
+    if (req.headers["x-forwarded-proto"] === "http") {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+
+  // Rate limiting — max 10 attempts per 15 minutes on auth routes
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: "Too many attempts. Please try again in 15 minutes." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
   // Session + Passport setup
   app.use(
     session({
-      secret: process.env.SESSION_SECRET || "a7medfit-secret-2026",
+      secret: process.env.SESSION_SECRET || crypto.randomUUID(),
       resave: false,
       saveUninitialized: false,
       store: new MemoryStore({ checkPeriod: 86400000 }),
-      cookie: { secure: false, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
+      cookie: { secure: process.env.NODE_ENV === "production", httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
     })
   );
   app.use(passport.initialize());
@@ -94,7 +115,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
     new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
       try {
         const user = await storage.getUserByEmail(email);
-        if (!user || user.password !== password) return done(null, false, { message: "Invalid credentials" });
+        if (!user) return done(null, false, { message: "Invalid credentials" });
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) return done(null, false, { message: "Invalid credentials" });
         return done(null, user);
       } catch (err) {
         return done(err);
@@ -130,7 +153,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
       }
       const existing = await storage.getUserByEmail(email);
       if (existing) return res.status(409).json({ error: "Email already registered" });
-      const user = await storage.createUser({ name, email, password, role: "coach" });
+      const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
+      const user = await storage.createUser({ name, email, password: hashed, role: "coach" });
       req.login(user, (err) => {
         if (err) return res.status(500).json({ error: "Login error" });
         const { password: _, ...safeUser } = user;
@@ -156,14 +180,15 @@ export function registerRoutes(httpServer: Server, app: Express) {
   }
 
   // ─── AUTH ──────────────────────────────────────────────────────────────────
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
       const parsed = insertUserSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
       if (parsed.data.role === "coach") return res.status(403).json({ error: "Coach accounts must be created by the admin" });
       const existing = await storage.getUserByEmail(parsed.data.email);
       if (existing) return res.status(409).json({ error: "Email already registered" });
-      const user = await storage.createUser(parsed.data);
+      const hashed = await bcrypt.hash(parsed.data.password, BCRYPT_ROUNDS);
+      const user = await storage.createUser({ ...parsed.data, password: hashed });
       req.login(user, (err) => {
         if (err) return res.status(500).json({ error: "Login error" });
         const { password: _, ...safeUser } = user;
@@ -175,7 +200,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", authLimiter, (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ error: info?.message || "Invalid credentials" });
