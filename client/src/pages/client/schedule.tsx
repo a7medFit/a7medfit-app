@@ -134,19 +134,28 @@ export default function ClientSchedule() {
         {/* Day tabs */}
         {daysWithExercises.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {daysWithExercises.map(({ day, index, count }) => (
-              <button
-                key={index}
-                onClick={() => setActiveDay(index)}
-                data-testid={`day-tab-${index}`}
-                className={cn(
-                  "flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  activeDay === index ? "bg-primary text-white" : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                )}
-              >
-                {day.slice(0, 3)} ({count})
-              </button>
-            ))}
+            {daysWithExercises.map(({ day, index, count }) => {
+              const dayExs = exercises.filter((e: any) => e.dayOfWeek === index);
+              const dayDone = dayExs.filter((e: any) => completions.some((c: any) => c.exerciseId === e.id)).length;
+              const dayPct = count > 0 ? Math.round((dayDone / count) * 100) : 0;
+              const isToday = index === new Date().getDay();
+              return (
+                <button
+                  key={index}
+                  onClick={() => setActiveDay(index)}
+                  data-testid={`day-tab-${index}`}
+                  className={cn(
+                    "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors min-w-[64px]",
+                    activeDay === index ? "bg-primary text-white" : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                  )}
+                >
+                  <span>{day.slice(0, 3)}{isToday ? " •" : ""}</span>
+                  <span className={cn("text-xs font-bold mt-0.5", activeDay === index ? "text-white" : dayPct === 100 ? "text-green-500" : "text-primary")}>
+                    {dayPct}%
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 
