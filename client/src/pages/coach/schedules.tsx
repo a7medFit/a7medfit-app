@@ -21,6 +21,7 @@ export default function CoachSchedules() {
   const [expandedSchedule, setExpandedSchedule] = useState<number | null>(null);
   const [newScheduleOpen, setNewScheduleOpen] = useState(false);
   const [newExerciseScheduleId, setNewExerciseScheduleId] = useState<number | null>(null);
+  const [editExercise, setEditExercise] = useState<any | null>(null);
   const [assignOpen, setAssignOpen] = useState<number | null>(null);
 
   const { data: schedules = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/schedules"] });
@@ -97,6 +98,49 @@ export default function CoachSchedules() {
       queryClient.invalidateQueries({ queryKey: [`/api/schedules/${scheduleId}/exercises`] });
       toast({ title: "Exercise removed" });
     },
+  });
+
+  const [editExForm, setEditExForm] = useState({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "" });
+  const [editVideoFile, setEditVideoFile] = useState<File | null>(null);
+  const [editYoutubeUrl, setEditYoutubeUrl] = useState("");
+  const [editVideoMode, setEditVideoMode] = useState<"upload" | "youtube" | "keep">("keep");
+  const editFileRef = useRef<HTMLInputElement>(null);
+
+  const openEditExercise = (ex: any) => {
+    setEditExercise(ex);
+    setEditExForm({
+      title: ex.title || "",
+      description: ex.description || "",
+      dayOfWeek: String(ex.dayOfWeek ?? 0),
+      sets: ex.sets ? String(ex.sets) : "",
+      reps: ex.reps ? String(ex.reps) : "",
+      durationSeconds: ex.durationSeconds ? String(ex.durationSeconds) : "",
+      notes: ex.notes || "",
+    });
+    setEditYoutubeUrl(ex.videoUrl && (ex.videoUrl.includes("youtube") || ex.videoUrl.includes("youtu.be")) ? ex.videoUrl : "");
+    setEditVideoMode("keep");
+    setEditVideoFile(null);
+  };
+
+  const updateExerciseMut = useMutation({
+    mutationFn: async ({ exId, scheduleId }: { exId: number; scheduleId: number }) => {
+      const fd = new FormData();
+      Object.entries(editExForm).forEach(([k, v]) => { if (v) fd.append(k, v); });
+      if (editVideoMode === "upload" && editVideoFile) {
+        fd.append("video", editVideoFile);
+      } else if (editVideoMode === "youtube" && editYoutubeUrl.trim()) {
+        fd.append("youtubeUrl", editYoutubeUrl.trim());
+      }
+      const res = await apiRequest("PATCH", `/api/exercises/${exId}`, fd);
+      if (!res.ok) throw new Error("Failed to update exercise");
+      return { scheduleId };
+    },
+    onSuccess: (_, { scheduleId }) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/schedules/${scheduleId}/exercises`] });
+      setEditExercise(null);
+      toast({ title: "Exercise updated" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update exercise", variant: "destructive" }),
   });
 
   const assignMut = useMutation({
@@ -200,6 +244,7 @@ export default function CoachSchedules() {
                 onAddExercise={() => setNewExerciseScheduleId(schedule.id)}
                 onAssign={() => setAssignOpen(schedule.id)}
                 deleteExercise={(exId) => deleteExerciseMut.mutate({ exerciseId: exId, scheduleId: schedule.id })}
+                editExercise={(ex) => openEditExercise(ex)}
               />
             ))}
           </div>
@@ -321,6 +366,89 @@ export default function CoachSchedules() {
           </DialogContent>
         </Dialog>
 
+        {/* Edit exercise dialog */}
+        <Dialog open={!!editExercise} onOpenChange={(o) => !o && setEditExercise(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Exercise</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2 max-h-[70vh] overflow-y-auto pr-1">
+              <div className="space-y-1.5">
+                <Label>Exercise Name *</Label>
+                <Input value={editExForm.title} onChange={(e) => setEditExForm({ ...editExForm, title: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Day of Week</Label>
+                <Select value={editExForm.dayOfWeek} onValueChange={(v) => setEditExForm({ ...editExForm, dayOfWeek: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Sets</Label>
+                  <Input type="number" value={editExForm.sets} onChange={(e) => setEditExForm({ ...editExForm, sets: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Reps</Label>
+                  <Input type="number" value={editExForm.reps} onChange={(e) => setEditExForm({ ...editExForm, reps: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Duration (s)</Label>
+                  <Input type="number" value={editExForm.durationSeconds} onChange={(e) => setEditExForm({ ...editExForm, durationSeconds: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Description</Label>
+                <Textarea value={editExForm.description} onChange={(e) => setEditExForm({ ...editExForm, description: e.target.value })} rows={2} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Notes</Label>
+                <Input value={editExForm.notes} onChange={(e) => setEditExForm({ ...editExForm, notes: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Video</Label>
+                <div className="flex rounded-lg border overflow-hidden">
+                  <button type="button" onClick={() => setEditVideoMode("keep")}
+                    className={`flex-1 py-2 text-xs font-medium transition-colors ${editVideoMode === "keep" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+                    Keep Current
+                  </button>
+                  <button type="button" onClick={() => setEditVideoMode("youtube")}
+                    className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium transition-colors ${editVideoMode === "youtube" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+                    <Youtube className="w-3.5 h-3.5" /> YouTube
+                  </button>
+                  <button type="button" onClick={() => setEditVideoMode("upload")}
+                    className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium transition-colors ${editVideoMode === "upload" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+                    <Upload className="w-3.5 h-3.5" /> Upload
+                  </button>
+                </div>
+                {editVideoMode === "youtube" && (
+                  <Input placeholder="https://youtube.com/watch?v=..." value={editYoutubeUrl} onChange={(e) => setEditYoutubeUrl(e.target.value)} />
+                )}
+                {editVideoMode === "upload" && (
+                  <div>
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50" onClick={() => editFileRef.current?.click()}>
+                      {editVideoFile ? (
+                        <span className="text-sm text-primary">{editVideoFile.name}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Click to upload video</span>
+                      )}
+                    </div>
+                    <input ref={editFileRef} type="file" accept="video/*" className="hidden" onChange={(e) => setEditVideoFile(e.target.files?.[0] || null)} />
+                  </div>
+                )}
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => editExercise && updateExerciseMut.mutate({ exId: editExercise.id, scheduleId: editExercise.scheduleId })}
+                disabled={!editExForm.title || updateExerciseMut.isPending}
+              >
+                {updateExerciseMut.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Assign clients dialog */}
         <Dialog open={assignOpen !== null} onOpenChange={(o) => !o && setAssignOpen(null)}>
           <DialogContent>
@@ -335,7 +463,7 @@ export default function CoachSchedules() {
   );
 }
 
-function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, onAssign, deleteExercise }: any) {
+function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, onAssign, deleteExercise, editExercise }: any) {
   const { data: exercises = [] } = useQuery<any[]>({
     queryKey: [`/api/schedules/${schedule.id}/exercises`],
     enabled: expanded,
@@ -405,13 +533,22 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => deleteExercise(ex.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:text-destructive transition-all"
-                        data-testid={`button-delete-exercise-${ex.id}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button
+                          onClick={() => editExercise({ ...ex, scheduleId: schedule.id })}
+                          className="p-1.5 rounded hover:text-primary"
+                          data-testid={`button-edit-exercise-${ex.id}`}
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteExercise(ex.id)}
+                          className="p-1.5 rounded hover:text-destructive"
+                          data-testid={`button-delete-exercise-${ex.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -141,6 +141,7 @@ export interface IStorage {
   getCompletionsByExercise(exerciseId: number): Promise<Completion[]>;
   getCompletionByClientAndExercise(clientId: number, exerciseId: number): Promise<Completion | undefined>;
   getAllCompletions(): Promise<Completion[]>;
+  updateCompletion(id: number, data: Partial<InsertCompletion>): Promise<Completion | undefined>;
 }
 
 export const storage: IStorage = {
@@ -260,5 +261,9 @@ export const storage: IStorage = {
   },
   async getAllCompletions() {
     return db.select().from(completions);
+  },
+  async updateCompletion(id, data) {
+    const result = await db.update(completions).set(data).where(eq(completions.id, id)).returning();
+    return result[0];
   },
 };

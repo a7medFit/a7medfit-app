@@ -488,6 +488,30 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  app.patch("/api/completions/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const id = Number(req.params.id);
+      // Verify the completion belongs to this client (or allow coach)
+      if (user.role !== "coach") {
+        const existing = await storage.getCompletionsByClient(user.id);
+        if (!existing.find((c) => c.id === id)) {
+          return res.status(403).json({ error: "Not your completion" });
+        }
+      }
+      const body = { ...req.body };
+      if (body.actualSets !== undefined) body.actualSets = parseInt(body.actualSets);
+      if (body.actualReps !== undefined) body.actualReps = parseInt(body.actualReps);
+      if (body.actualWeight !== undefined) body.actualWeight = parseFloat(body.actualWeight);
+      if (body.rating !== undefined) body.rating = parseInt(body.rating);
+      const updated = await storage.updateCompletion(id, body);
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update completion" });
+    }
+  });
+
   // ─── COACH PROGRESS OVERVIEW ───────────────────────────────────────────────
   app.get("/api/coach/progress", requireCoach, async (req, res) => {
     try {

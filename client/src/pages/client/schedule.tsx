@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell } from "lucide-react";
+import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -40,6 +40,7 @@ export default function ClientSchedule() {
   const scheduleId = Number(params?.id);
   const { toast } = useToast();
   const [logExercise, setLogExercise] = useState<any | null>(null);
+  const [editingCompletionId, setEditingCompletionId] = useState<number | null>(null);
   const [sets, setSets] = useState<SetRow[]>([{ reps: "", weight: "" }, { reps: "", weight: "" }, { reps: "", weight: "" }]);
   const [notes, setNotes] = useState("");
   const [rating, setRating] = useState("");
@@ -59,6 +60,22 @@ export default function ClientSchedule() {
     ]);
     setNotes("");
     setRating("");
+    setEditingCompletionId(null);
+    setLogExercise(ex);
+  };
+
+  const openEdit = (ex: any) => {
+    const c = getCompletion(ex.id);
+    if (!c) return;
+    const prevSets = getLastSets(ex.id);
+    setSets(
+      prevSets && prevSets.length === 3
+        ? prevSets
+        : [{ reps: "", weight: "" }, { reps: "", weight: "" }, { reps: "", weight: "" }]
+    );
+    setNotes(c.notes || "");
+    setRating(c.rating ? String(c.rating) : "");
+    setEditingCompletionId(c.id);
     setLogExercise(ex);
   };
 
@@ -68,6 +85,7 @@ export default function ClientSchedule() {
 
   const logMut = useMutation({
     mutationFn: async (ex: any) => {
+      const isEditing = editingCompletionId !== null;
       const filledSets = sets.filter((s) => s.reps || s.weight);
       const totalReps = filledSets.reduce((acc, s) => acc + (parseInt(s.reps) || 0), 0);
       const avgWeight = filledSets.length > 0
@@ -83,16 +101,28 @@ export default function ClientSchedule() {
         notes: notes || undefined,
         rating: rating ? parseInt(rating) : undefined,
       };
-      const res = await apiRequest("POST", "/api/completions", body);
-      if (!res.ok) throw new Error("Failed to log completion");
-      return res.json();
+      if (isEditing) {
+        // PATCH existing completion
+        const res = await apiRequest("PATCH", `/api/completions/${editingCompletionId}`, body);
+        if (!res.ok) throw new Error("Failed to update completion");
+        return { data: await res.json(), isEditing };
+      } else {
+        // POST new completion
+        const res = await apiRequest("POST", "/api/completions", body);
+        if (!res.ok) throw new Error("Failed to log completion");
+        return { data: await res.json(), isEditing };
+      }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/completions"] });
       setLogExercise(null);
-      toast({ title: "Exercise logged!", description: "Great work, keep it up!" });
+      setEditingCompletionId(null);
+      toast({
+        title: result.isEditing ? "Entry updated!" : "Exercise logged!",
+        description: result.isEditing ? "Your workout entry has been updated." : "Great work, keep it up!",
+      });
     },
-    onError: () => toast({ title: "Error", description: "Failed to log exercise", variant: "destructive" }),
+    onError: () => toast({ title: "Error", description: "Failed to save exercise entry", variant: "destructive" }),
   });
 
   const isDone = (exId: number) => completions.some((c: any) => c.exerciseId === exId);
@@ -215,7 +245,11 @@ export default function ClientSchedule() {
                                 <Play className="w-3 h-3" /> Watch
                               </Button>
                             )}
-                            {!done && (
+                            {done ? (
+                              <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => openEdit(ex)} data-testid={`button-edit-completion-${ex.id}`}>
+                                <Pencil className="w-3 h-3" /> Edit
+                              </Button>
+                            ) : (
                               <Button size="sm" className="h-7 text-xs" onClick={() => openLog(ex)} data-testid={`button-log-exercise-${ex.id}`}>
                                 Log
                               </Button>
@@ -261,7 +295,7 @@ export default function ClientSchedule() {
       <Dialog open={!!logExercise} onOpenChange={(o) => !o && setLogExercise(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Log: {logExercise?.title}</DialogTitle>
+            <DialogTitle>{editingCompletionId !== null ? "Edit Entry" : "Log"}: {logExercise?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
 
@@ -352,7 +386,7 @@ export default function ClientSchedule() {
               data-testid="button-confirm-log"
             >
               <CheckCircle2 className="w-4 h-4" />
-              {logMut.isPending ? "Saving..." : "Mark as Done"}
+              {logMut.isPending ? "Saving..." : editingCompletionId !== null ? "Save Changes" : "Mark as Done"}
             </Button>
           </div>
         </DialogContent>
