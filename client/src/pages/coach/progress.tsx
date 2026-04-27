@@ -33,7 +33,11 @@ export default function CoachProgress() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {progress.map((p: any) => {
+            {[...progress].sort((a: any, b: any) => {
+              const pctA = (() => { const t = a.scheduleProgress.reduce((x: number, s: any) => x + s.totalExercises, 0); const d = a.scheduleProgress.reduce((x: number, s: any) => x + s.completedExercises, 0); return t > 0 ? Math.round((d / t) * 100) : 0; })();
+              const pctB = (() => { const t = b.scheduleProgress.reduce((x: number, s: any) => x + s.totalExercises, 0); const d = b.scheduleProgress.reduce((x: number, s: any) => x + s.completedExercises, 0); return t > 0 ? Math.round((d / t) * 100) : 0; })();
+              return pctB - pctA;
+            }).map((p: any) => {
               const totalEx = p.scheduleProgress.reduce((a: number, sp: any) => a + sp.totalExercises, 0);
               const doneEx = p.scheduleProgress.reduce((a: number, sp: any) => a + sp.completedExercises, 0);
               const pct = totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
