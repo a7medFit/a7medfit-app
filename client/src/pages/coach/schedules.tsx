@@ -16,6 +16,11 @@ import { format } from "date-fns";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+function extractYoutubeId(url: string): string {
+  const match = url.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/);
+  return match ? match[1] : "";
+}
+
 export default function CoachSchedules() {
   const { toast } = useToast();
   const [expandedSchedule, setExpandedSchedule] = useState<number | null>(null);
@@ -23,6 +28,7 @@ export default function CoachSchedules() {
   const [newExerciseScheduleId, setNewExerciseScheduleId] = useState<number | null>(null);
   const [editExercise, setEditExercise] = useState<any | null>(null);
   const [assignOpen, setAssignOpen] = useState<number | null>(null);
+  const [videoEx, setVideoEx] = useState<any | null>(null);
 
   const { data: schedules = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/schedules"] });
   const { data: clients = [] } = useQuery<any[]>({ queryKey: ["/api/clients"] });
@@ -245,6 +251,7 @@ export default function CoachSchedules() {
                 onAssign={() => setAssignOpen(schedule.id)}
                 deleteExercise={(exId) => deleteExerciseMut.mutate({ exerciseId: exId, scheduleId: schedule.id })}
                 editExercise={(ex) => openEditExercise(ex)}
+                playVideo={(ex) => setVideoEx(ex)}
               />
             ))}
           </div>
@@ -449,6 +456,32 @@ export default function CoachSchedules() {
           </DialogContent>
         </Dialog>
 
+        {/* Video preview dialog */}
+        <Dialog open={!!videoEx} onOpenChange={(o) => !o && setVideoEx(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Play className="w-4 h-4" />
+                {videoEx?.title}
+              </DialogTitle>
+            </DialogHeader>
+            {videoEx?.videoUrl && (
+              <div className="w-full rounded-lg overflow-hidden bg-black aspect-video">
+                {videoEx.videoUrl.includes("youtube") || videoEx.videoUrl.includes("youtu.be") ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${extractYoutubeId(videoEx.videoUrl)}?autoplay=1`}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video src={videoEx.videoUrl} controls autoPlay className="w-full h-full" />
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* Assign clients dialog */}
         <Dialog open={assignOpen !== null} onOpenChange={(o) => !o && setAssignOpen(null)}>
           <DialogContent>
@@ -463,7 +496,7 @@ export default function CoachSchedules() {
   );
 }
 
-function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, onAssign, deleteExercise, editExercise }: any) {
+function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, onAssign, deleteExercise, editExercise, playVideo }: any) {
   const { data: exercises = [] } = useQuery<any[]>({
     queryKey: [`/api/schedules/${schedule.id}/exercises`],
     enabled: expanded,
@@ -523,7 +556,18 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
                   {dayExs.map((ex: any) => (
                     <div key={ex.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 group" data-testid={`exercise-row-${ex.id}`}>
                       <div className="flex items-center gap-3 min-w-0">
-                        {ex.videoUrl && <Play className="w-4 h-4 text-primary shrink-0" />}
+                        {ex.videoUrl ? (
+                          <button
+                            onClick={() => playVideo({ ...ex, scheduleId: schedule.id })}
+                            className="shrink-0 w-7 h-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center transition-colors"
+                            title="Watch video"
+                            data-testid={`button-play-video-${ex.id}`}
+                          >
+                            <Play className="w-3.5 h-3.5 text-primary" />
+                          </button>
+                        ) : (
+                          <div className="shrink-0 w-7 h-7" />
+                        )}
                         <div className="min-w-0">
                           <span className="text-sm font-medium">{ex.title}</span>
                           {(ex.sets || ex.reps) && (
