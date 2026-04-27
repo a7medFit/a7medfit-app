@@ -234,6 +234,20 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  app.patch("/api/clients/:id", requireCoach, async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name?.trim()) return res.status(400).json({ error: "Name is required" });
+      const initials = name.trim().split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+      const result = await storage.updateClientName(Number(req.params.id), name.trim(), initials);
+      if (!result) return res.status(404).json({ error: "Client not found" });
+      const { password: _, ...safe } = result;
+      res.json(safe);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update client" });
+    }
+  });
+
   app.delete("/api/clients/:id", requireCoach, async (req, res) => {
     try {
       await storage.deleteClient(Number(req.params.id));

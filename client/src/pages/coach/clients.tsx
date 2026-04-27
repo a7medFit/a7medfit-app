@@ -12,14 +12,32 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Users, Mail, CheckCircle2, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Users, Mail, CheckCircle2, Trash2, Pencil } from "lucide-react";
 
 export default function CoachClients() {
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [editName, setEditName] = useState("");
 
   const { data: clients = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/clients"] });
   const { data: completions = [] } = useQuery<any[]>({ queryKey: ["/api/completions"] });
+
+  const editMut = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const res = await apiRequest("PATCH", `/api/clients/${id}`, { name });
+      if (!res.ok) throw new Error("Failed to update");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      toast({ title: "Name updated" });
+      setEditTarget(null);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update name", variant: "destructive" }),
+  });
 
   const deleteMut = useMutation({
     mutationFn: async (clientId: number) => {
@@ -87,6 +105,15 @@ export default function CoachClients() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-primary"
+                      onClick={() => { setEditTarget(client); setEditName(client.name); }}
+                      data-testid={`button-edit-client-${client.id}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => setDeleteTarget(client)}
                       data-testid={`button-delete-client-${client.id}`}
@@ -100,6 +127,34 @@ export default function CoachClients() {
           </div>
         )}
       </div>
+
+      {/* Edit name dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Client Name</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>Full Name</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Client name"
+                data-testid="input-edit-client-name"
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => editMut.mutate({ id: editTarget.id, name: editName })}
+              disabled={!editName.trim() || editMut.isPending}
+              data-testid="button-save-client-name"
+            >
+              {editMut.isPending ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm delete dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

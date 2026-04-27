@@ -111,6 +111,7 @@ export interface IStorage {
   getAllClients(): Promise<User[]>;
   updateUserAvatar(id: number, initials: string): Promise<User | undefined>;
   deleteClient(id: number): Promise<void>;
+  updateClientName(id: number, name: string, initials: string): Promise<User | undefined>;
 
   // Schedules
   createSchedule(data: InsertSchedule): Promise<Schedule>;
@@ -162,6 +163,10 @@ export const storage: IStorage = {
   },
   async updateUserAvatar(id, initials) {
     const result = await db.update(users).set({ avatarInitials: initials }).where(eq(users.id, id)).returning();
+    return result[0];
+  },
+  async updateClientName(id, name, initials) {
+    const result = await db.update(users).set({ name, avatarInitials: initials }).where(eq(users.id, id)).returning();
     return result[0];
   },
   async deleteClient(id) {
