@@ -40,7 +40,7 @@ export default function ClientDashboard() {
           <TodaysExercises schedules={schedules} completions={completions} todayDay={todayDay} />
         )}
 
-        {/* All schedules */}
+        {/* All schedules with per-day progress */}
         {isLoading ? (
           <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="skeleton h-24 rounded-lg" />)}</div>
         ) : schedules.length === 0 ? (
@@ -55,7 +55,7 @@ export default function ClientDashboard() {
           <div className="space-y-3">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Your Programs</h2>
             {schedules.map((s: any) => (
-              <ScheduleSummaryCard key={s.id} schedule={s} completions={completions} />
+              <ScheduleSummaryCard key={s.id} schedule={s} completions={completions} todayDay={todayDay} />
             ))}
           </div>
         )}
@@ -82,6 +82,9 @@ function TodayScheduleExercises({ schedule, completions, todayDay }: any) {
   const todayExercises = exercises.filter((e: any) => e.dayOfWeek === todayDay);
   if (todayExercises.length === 0) return null;
 
+  const doneTodayCount = todayExercises.filter((e: any) => completions.some((c: any) => c.exerciseId === e.id)).length;
+  const todayPct = Math.round((doneTodayCount / todayExercises.length) * 100);
+
   return (
     <Card className="border-primary/30">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -92,7 +95,12 @@ function TodayScheduleExercises({ schedule, completions, todayDay }: any) {
           </Button>
         </Link>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-3">
+        {/* Today's day progress bar */}
+        <div className="flex items-center gap-2">
+          <Progress value={todayPct} className="h-1.5 flex-1" />
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{doneTodayCount}/{todayExercises.length} today</span>
+        </div>
         {todayExercises.slice(0, 3).map((ex: any) => {
           const done = completions.some((c: any) => c.exerciseId === ex.id);
           return (
@@ -111,25 +119,48 @@ function TodayScheduleExercises({ schedule, completions, todayDay }: any) {
   );
 }
 
-function ScheduleSummaryCard({ schedule, completions }: any) {
+function ScheduleSummaryCard({ schedule, completions, todayDay }: any) {
   const { data: exercises = [] } = useQuery<any[]>({ queryKey: [`/api/schedules/${schedule.id}/exercises`] });
-  const doneCount = completions.filter((c: any) => c.scheduleId === schedule.id).length;
-  const pct = exercises.length > 0 ? Math.round((doneCount / exercises.length) * 100) : 0;
+
+  // Group exercises by day
+  const daysWithExercises = DAYS.map((dayName, i) => {
+    const dayExs = exercises.filter((e: any) => e.dayOfWeek === i);
+    if (dayExs.length === 0) return null;
+    const done = dayExs.filter((e: any) => completions.some((c: any) => c.exerciseId === e.id)).length;
+    return { dayName, dayIndex: i, total: dayExs.length, done, isToday: i === todayDay };
+  }).filter(Boolean);
 
   return (
     <Card data-testid={`schedule-card-${schedule.id}`}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-primary" />
             <span className="font-medium text-sm">{schedule.title}</span>
           </div>
           <Badge variant={schedule.status === "active" ? "default" : "secondary"} className="text-xs">{schedule.status}</Badge>
         </div>
-        <div className="flex items-center gap-3 mb-3">
-          <Progress value={pct} className="h-2 flex-1" />
-          <span className="text-xs text-muted-foreground whitespace-nowrap">{doneCount}/{exercises.length}</span>
-        </div>
+
+        {/* Per-day progress */}
+        {daysWithExercises.length > 0 && (
+          <div className="space-y-2">
+            {daysWithExercises.map((d: any) => {
+              const pct = Math.round((d.done / d.total) * 100);
+              return (
+                <div key={d.dayIndex} className={`space-y-1 p-2 rounded-lg ${d.isToday ? "bg-primary/5 border border-primary/20" : ""}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-medium ${d.isToday ? "text-primary" : "text-muted-foreground"}`}>
+                      {d.dayName} {d.isToday && <span className="text-[10px] ml-1 font-normal">(today)</span>}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{d.done}/{d.total}</span>
+                  </div>
+                  <Progress value={pct} className="h-1" />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <Link href={`/schedule/${schedule.id}`}>
           <Button size="sm" className="w-full gap-1.5" data-testid={`button-open-schedule-${schedule.id}`}>
             <Dumbbell className="w-3.5 h-3.5" /> View Exercises

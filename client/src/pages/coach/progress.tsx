@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Layout from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, Calendar, CheckCircle2, Dumbbell, ChevronDown, ChevronUp, Weight } from "lucide-react";
+import { TrendingUp, Calendar, CheckCircle2, Dumbbell, ChevronDown, ChevronUp } from "lucide-react";
+
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function CoachProgress() {
   const { data: progress = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/coach/progress"] });
@@ -72,35 +74,75 @@ export default function CoachProgress() {
                   </CardHeader>
 
                   {isExpanded && (
-                    <CardContent className="pt-0">
-                      <div className="space-y-4">
-                        {p.scheduleProgress.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">No schedules assigned.</p>
-                        ) : (
-                          p.scheduleProgress.map((sp: any) => (
-                            <div key={sp.schedule.id} className="p-4 rounded-lg bg-muted/30 space-y-3" data-testid={`sp-${p.client.id}-${sp.schedule.id}`}>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="w-4 h-4 text-primary" />
-                                  <span className="font-medium text-sm">{sp.schedule.title}</span>
-                                </div>
-                                <Badge variant={sp.percent >= 100 ? "default" : "secondary"} className="text-xs">
-                                  {sp.percent}%
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Progress value={sp.percent} className="h-1.5 flex-1" />
-                                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                  {sp.completedExercises}/{sp.totalExercises} exercises
-                                </span>
-                              </div>
+                    <CardContent className="pt-0 space-y-4">
+                      {/* Schedule progress */}
+                      {p.scheduleProgress.map((sp: any) => (
+                        <div key={sp.schedule.id} className="p-4 rounded-lg bg-muted/30 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-primary" />
+                              <span className="font-medium text-sm">{sp.schedule.title}</span>
                             </div>
-                          ))
-                        )}
+                            <Badge variant={sp.percent >= 100 ? "default" : "secondary"} className="text-xs">
+                              {sp.percent}%
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Progress value={sp.percent} className="h-1.5 flex-1" />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {sp.completedExercises}/{sp.totalExercises} exercises
+                            </span>
+                          </div>
 
-                        {/* Recent completions detail */}
-                        <RecentCompletions clientId={p.client.id} />
-                      </div>
+                          {/* Day-by-day breakdown */}
+                          {sp.dayBreakdown && sp.dayBreakdown.length > 0 && (
+                            <div className="space-y-1 mt-2">
+                              {sp.dayBreakdown.map((day: any) => (
+                                <div key={day.dayIndex} className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-muted-foreground">{DAYS[day.dayIndex]}</span>
+                                    <span className="text-xs text-muted-foreground">{day.done}/{day.total}</span>
+                                  </div>
+                                  {/* Exercises for this day */}
+                                  {day.exercises.map((ex: any) => (
+                                    <div key={ex.id} className="ml-2 p-2 rounded bg-background border space-y-1.5">
+                                      <div className="flex items-center gap-2">
+                                        <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${ex.completed ? "text-green-500" : "text-muted-foreground/30"}`} />
+                                        <span className="text-xs font-medium">{ex.title}</span>
+                                        {ex.sets && <span className="text-xs text-muted-foreground ml-auto">{ex.sets}×{ex.reps} target</span>}
+                                      </div>
+
+                                      {/* Sets breakdown — each set individually */}
+                                      {ex.setsData && ex.setsData.length > 0 && (
+                                        <div className="ml-5 space-y-1">
+                                          <div className="grid grid-cols-3 gap-2 text-[11px] font-medium text-muted-foreground/70">
+                                            <span>Set</span><span>Reps</span><span>Weight</span>
+                                          </div>
+                                          {ex.setsData.map((s: any, i: number) => (s.reps || s.weight) && (
+                                            <div key={i} className="grid grid-cols-3 gap-2 text-[11px] bg-muted/40 rounded px-1.5 py-0.5">
+                                              <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                                              <span>{s.reps || "—"} reps</span>
+                                              <span>{s.weight ? `${s.weight} kg` : "—"}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* Rating & notes */}
+                                      {(ex.rating || ex.notes) && (
+                                        <div className="ml-5 flex gap-3 text-[11px] text-muted-foreground">
+                                          {ex.rating && <span>{"⭐".repeat(ex.rating)} difficulty</span>}
+                                          {ex.notes && <span className="italic">"{ex.notes}"</span>}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </CardContent>
                   )}
                 </Card>
@@ -110,37 +152,5 @@ export default function CoachProgress() {
         )}
       </div>
     </Layout>
-  );
-}
-
-function RecentCompletions({ clientId }: { clientId: number }) {
-  const { data: allCompletions = [] } = useQuery<any[]>({ queryKey: ["/api/completions"] });
-  const clientCompletions = allCompletions.filter((c: any) => c.clientId === clientId).slice(-5).reverse();
-
-  if (clientCompletions.length === 0) return null;
-
-  return (
-    <div>
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Recent Logs</h4>
-      <div className="space-y-2">
-        {clientCompletions.map((c: any) => (
-          <div key={c.id} className="flex items-center justify-between text-sm p-2 rounded bg-background border" data-testid={`completion-row-${c.id}`}>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-              <span className="text-muted-foreground text-xs">{new Date(c.completedAt).toLocaleDateString()}</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {c.actualSets && <span>{c.actualSets}×{c.actualReps}</span>}
-              {c.actualWeight && (
-                <span className="flex items-center gap-0.5">
-                  <Weight className="w-3 h-3" />{c.actualWeight}kg
-                </span>
-              )}
-              {c.rating && <span>{"⭐".repeat(c.rating)}</span>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }

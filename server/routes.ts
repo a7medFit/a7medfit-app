@@ -462,12 +462,45 @@ export function registerRoutes(httpServer: Server, app: Express) {
                 const sched = await storage.getScheduleById(sid);
                 if (!sched) return null;
                 const exs = await storage.getExercisesBySchedule(sid);
-                const done = clientCompletions.filter((c) => c.scheduleId === sid).length;
+                const schedCompletions = clientCompletions.filter((c) => c.scheduleId === sid);
+                const done = schedCompletions.length;
+
+                // Build day-by-day breakdown
+                const dayMap = new Map<number, any[]>();
+                for (const ex of exs) {
+                  if (!dayMap.has(ex.dayOfWeek)) dayMap.set(ex.dayOfWeek, []);
+                  const completion = schedCompletions.find((c) => c.exerciseId === ex.id);
+                  let setsData = null;
+                  if (completion?.setsData) {
+                    try { setsData = JSON.parse(completion.setsData); } catch {}
+                  }
+                  dayMap.get(ex.dayOfWeek)!.push({
+                    id: ex.id,
+                    title: ex.title,
+                    sets: ex.sets,
+                    reps: ex.reps,
+                    completed: !!completion,
+                    setsData,
+                    rating: completion?.rating,
+                    notes: completion?.notes,
+                  });
+                }
+
+                const dayBreakdown = Array.from(dayMap.entries())
+                  .sort(([a], [b]) => a - b)
+                  .map(([dayIndex, exercises]) => ({
+                    dayIndex,
+                    total: exercises.length,
+                    done: exercises.filter((e) => e.completed).length,
+                    exercises,
+                  }));
+
                 return {
                   schedule: sched,
                   totalExercises: exs.length,
                   completedExercises: done,
                   percent: exs.length > 0 ? Math.round((done / exs.length) * 100) : 0,
+                  dayBreakdown,
                 };
               })
             )
