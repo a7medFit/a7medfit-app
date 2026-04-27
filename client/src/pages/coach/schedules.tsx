@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users } from "lucide-react";
+import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube } from "lucide-react";
 import { format } from "date-fns";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -32,6 +32,8 @@ export default function CoachSchedules() {
   // Exercise form state
   const [exerciseForm, setExerciseForm] = useState({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "" });
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [videoMode, setVideoMode] = useState<"upload" | "youtube">("youtube");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const createScheduleMut = useMutation({
@@ -65,7 +67,11 @@ export default function CoachSchedules() {
     mutationFn: async (scheduleId: number) => {
       const fd = new FormData();
       Object.entries(exerciseForm).forEach(([k, v]) => { if (v) fd.append(k, v); });
-      if (videoFile) fd.append("video", videoFile);
+      if (videoMode === "upload" && videoFile) {
+        fd.append("video", videoFile);
+      } else if (videoMode === "youtube" && youtubeUrl.trim()) {
+        fd.append("youtubeUrl", youtubeUrl.trim());
+      }
       const res = await apiRequest("POST", `/api/schedules/${scheduleId}/exercises`, fd);
       if (!res.ok) throw new Error("Failed to create exercise");
       return res.json();
@@ -75,6 +81,7 @@ export default function CoachSchedules() {
       setNewExerciseScheduleId(null);
       setExerciseForm({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "" });
       setVideoFile(null);
+      setYoutubeUrl("");
       toast({ title: "Exercise added" });
     },
     onError: () => toast({ title: "Error", description: "Failed to add exercise", variant: "destructive" }),
@@ -240,27 +247,67 @@ export default function CoachSchedules() {
                 <Label>Notes</Label>
                 <Input placeholder="e.g. Focus on form, rest 90s between sets" value={exerciseForm.notes} onChange={(e) => setExerciseForm({ ...exerciseForm, notes: e.target.value })} />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label>Exercise Video (optional)</Label>
-                <div
-                  className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => fileRef.current?.click()}
-                  data-testid="video-upload-zone"
-                >
-                  {videoFile ? (
-                    <div className="flex items-center justify-center gap-2 text-primary">
-                      <Play className="w-5 h-5" />
-                      <span className="text-sm font-medium truncate max-w-xs">{videoFile.name}</span>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-                      <p className="text-sm text-muted-foreground">Click to upload video</p>
-                      <p className="text-xs text-muted-foreground/60 mt-1">MP4, MOV, WebM · Up to 500MB</p>
-                    </>
-                  )}
+                {/* Toggle tabs */}
+                <div className="flex rounded-lg border overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setVideoMode("youtube")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${
+                      videoMode === "youtube" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                    data-testid="video-mode-youtube"
+                  >
+                    <Youtube className="w-4 h-4" /> YouTube Link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVideoMode("upload")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${
+                      videoMode === "upload" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                    data-testid="video-mode-upload"
+                  >
+                    <Upload className="w-4 h-4" /> Upload File
+                  </button>
                 </div>
-                <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
+
+                {videoMode === "youtube" ? (
+                  <div className="space-y-1.5">
+                    <Input
+                      placeholder="https://youtube.com/watch?v=..."
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      data-testid="input-youtube-url"
+                    />
+                    {youtubeUrl && (
+                      <p className="text-xs text-muted-foreground">Tip: Use an unlisted YouTube video so only your clients can watch it.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div
+                      className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => fileRef.current?.click()}
+                      data-testid="video-upload-zone"
+                    >
+                      {videoFile ? (
+                        <div className="flex items-center justify-center gap-2 text-primary">
+                          <Play className="w-5 h-5" />
+                          <span className="text-sm font-medium truncate max-w-xs">{videoFile.name}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                          <p className="text-sm text-muted-foreground">Click to upload video</p>
+                          <p className="text-xs text-muted-foreground/60 mt-1">MP4, MOV, WebM · Up to 500MB</p>
+                        </>
+                      )}
+                    </div>
+                    <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
+                  </div>
+                )}
               </div>
               <Button
                 className="w-full"

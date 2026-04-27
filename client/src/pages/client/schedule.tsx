@@ -16,6 +16,23 @@ import { cn } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+function isYouTube(url: string) {
+  return url.includes("youtube.com") || url.includes("youtu.be");
+}
+
+function getYouTubeEmbedUrl(url: string) {
+  let videoId = "";
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtu.be")) {
+      videoId = u.pathname.slice(1);
+    } else {
+      videoId = u.searchParams.get("v") || "";
+    }
+  } catch {}
+  return `https://www.youtube.com/embed/${videoId}?rel=0`;
+}
+
 interface SetRow { reps: string; weight: string; }
 
 export default function ClientSchedule() {
@@ -348,13 +365,23 @@ export default function ClientSchedule() {
             <DialogTitle>{videoEx?.title}</DialogTitle>
           </DialogHeader>
           {videoEx?.videoUrl && (
-            <video
-              src={videoEx.videoUrl.replace("__PORT_5000__", "")}
-              controls
-              className="w-full rounded-lg"
-              style={{ maxHeight: "60vh" }}
-              data-testid="exercise-video-player"
-            />
+            isYouTube(videoEx.videoUrl) ? (
+              <iframe
+                src={getYouTubeEmbedUrl(videoEx.videoUrl)}
+                className="w-full rounded-lg aspect-video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                data-testid="exercise-youtube-player"
+              />
+            ) : (
+              <video
+                src={videoEx.videoUrl.replace("__PORT_5000__", "")}
+                controls
+                className="w-full rounded-lg"
+                style={{ maxHeight: "60vh" }}
+                data-testid="exercise-video-player"
+              />
+            )
           )}
         </DialogContent>
       </Dialog>

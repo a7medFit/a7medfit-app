@@ -286,6 +286,10 @@ export function registerRoutes(httpServer: Server, app: Express) {
         const { url, filename } = await uploadVideo(req.file);
         body.videoUrl = url;
         body.videoFilename = filename;
+      } else if (body.youtubeUrl) {
+        body.videoUrl = body.youtubeUrl;
+        body.videoFilename = "youtube";
+        delete body.youtubeUrl;
       }
       if (body.sets) body.sets = parseInt(body.sets);
       if (body.reps) body.reps = parseInt(body.reps);
