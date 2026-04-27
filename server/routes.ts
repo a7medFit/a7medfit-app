@@ -81,6 +81,9 @@ declare module "express-session" {
 }
 
 export function registerRoutes(httpServer: Server, app: Express) {
+  // Trust Render's proxy
+  app.set("trust proxy", 1);
+
   // HTTPS redirect
   app.use((req, res, next) => {
     if (req.headers["x-forwarded-proto"] === "http") {
@@ -105,7 +108,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       resave: false,
       saveUninitialized: false,
       store: new MemoryStore({ checkPeriod: 86400000 }),
-      cookie: { secure: process.env.NODE_ENV === "production", httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
+      cookie: { secure: false, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
     })
   );
   app.use(passport.initialize());
