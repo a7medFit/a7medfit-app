@@ -465,20 +465,26 @@ export default function CoachSchedules() {
                 {videoEx?.title}
               </DialogTitle>
             </DialogHeader>
-            {videoEx?.videoUrl && (
-              <div className="w-full rounded-lg overflow-hidden bg-black aspect-video">
-                {videoEx.videoUrl.includes("youtube") || videoEx.videoUrl.includes("youtu.be") ? (
+            {videoEx?.videoUrl && (() => {
+              const isYT = videoEx.videoUrl.includes("youtube") || videoEx.videoUrl.includes("youtu.be");
+              const isShorts = videoEx.videoUrl.includes("/shorts/");
+              const ytId = extractYoutubeId(videoEx.videoUrl);
+              return isYT ? (
+                <div className={`w-full rounded-lg overflow-hidden bg-black flex justify-center ${isShorts ? "" : "aspect-video"}` }>
                   <iframe
-                    src={`https://www.youtube.com/embed/${extractYoutubeId(videoEx.videoUrl)}?autoplay=1`}
-                    className="w-full h-full"
+                    src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+                    className={isShorts ? "w-full" : "w-full h-full"}
+                    style={isShorts ? { aspectRatio: "9/16", maxHeight: "70vh" } : undefined}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
-                ) : (
+                </div>
+              ) : (
+                <div className="w-full rounded-lg overflow-hidden bg-black aspect-video">
                   <video src={videoEx.videoUrl} controls autoPlay muted className="w-full h-full" />
-                )}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </DialogContent>
         </Dialog>
 

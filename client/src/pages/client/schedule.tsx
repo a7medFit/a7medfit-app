@@ -403,15 +403,19 @@ export default function ClientSchedule() {
           <DialogHeader>
             <DialogTitle>{videoEx?.title}</DialogTitle>
           </DialogHeader>
-          {videoEx?.videoUrl && (
-            isYouTube(videoEx.videoUrl) ? (
-              <iframe
-                src={getYouTubeEmbedUrl(videoEx.videoUrl)}
-                className="w-full rounded-lg aspect-video"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                data-testid="exercise-youtube-player"
-              />
+          {videoEx?.videoUrl && (() => {
+            const isShorts = videoEx.videoUrl.includes("/shorts/");
+            return isYouTube(videoEx.videoUrl) ? (
+              <div className={`w-full rounded-lg overflow-hidden bg-black flex justify-center ${isShorts ? "" : "aspect-video"}`}>
+                <iframe
+                  src={getYouTubeEmbedUrl(videoEx.videoUrl)}
+                  className={isShorts ? "w-full" : "w-full h-full"}
+                  style={isShorts ? { aspectRatio: "9/16", maxHeight: "70vh" } : undefined}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  data-testid="exercise-youtube-player"
+                />
+              </div>
             ) : (
               <video
                 src={videoEx.videoUrl.replace("__PORT_5000__", "")}
@@ -421,8 +425,8 @@ export default function ClientSchedule() {
                 style={{ maxHeight: "60vh" }}
                 data-testid="exercise-video-player"
               />
-            )
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </Layout>
