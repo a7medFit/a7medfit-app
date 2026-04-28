@@ -512,7 +512,89 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  // ─── COACH PROGRESS OVERVIEW ───────────────────────────────────────────────
+  // ─── EXERCISE LIBRARY ────────────────────────────────────────────────────────
+  app.get("/api/library", requireCoach, async (_req, res) => {
+    try {
+      res.json(await storage.getLibraryExercises());
+    } catch { res.status(500).json({ error: "Failed to get library" }); }
+  });
+
+  app.post("/api/library", requireCoach, upload.single("video"), async (req, res) => {
+    try {
+      const body: any = { ...req.body };
+      if (body.defaultSets) body.defaultSets = parseInt(body.defaultSets);
+      if (body.defaultReps) body.defaultReps = parseInt(body.defaultReps);
+      if (body.durationSeconds) body.durationSeconds = parseInt(body.durationSeconds);
+      if (!body.muscleGroup) body.muscleGroup = "Other";
+      if (req.file) {
+        const { url, filename } = await uploadVideo(req.file);
+        body.videoUrl = url;
+        body.videoFilename = filename;
+      } else if (body.youtubeUrl) {
+        body.videoUrl = body.youtubeUrl;
+        delete body.youtubeUrl;
+      }
+      res.json(await storage.createLibraryExercise(body));
+    } catch (err: any) { res.status(500).json({ error: err.message || "Failed to create" }); }
+  });
+
+  app.patch("/api/library/:id", requireCoach, upload.single("video"), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const body: any = { ...req.body };
+      if (body.defaultSets !== undefined) body.defaultSets = body.defaultSets ? parseInt(body.defaultSets) : null;
+      if (body.defaultReps !== undefined) body.defaultReps = body.defaultReps ? parseInt(body.defaultReps) : null;
+      if (body.durationSeconds !== undefined) body.durationSeconds = body.durationSeconds ? parseInt(body.durationSeconds) : null;
+      if (req.file) {
+        const { url, filename } = await uploadVideo(req.file);
+        body.videoUrl = url;
+        body.videoFilename = filename;
+      } else if (body.youtubeUrl) {
+        body.videoUrl = body.youtubeUrl;
+        delete body.youtubeUrl;
+      } else if (body.clearVideo === "true") {
+        body.videoUrl = null;
+        body.videoFilename = null;
+      }
+      const updated = await storage.updateLibraryExercise(id, body);
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ error: err.message || "Failed to update" }); }
+  });
+
+  app.delete("/api/library/:id", requireCoach, async (req, res) => {
+    try {
+      await storage.deleteLibraryExercise(Number(req.params.id));
+      res.json({ ok: true });
+    } catch { res.status(500).json({ error: "Failed to delete" }); }
+  });
+
+  // Add library exercise to a schedule (copy as schedule exercise)
+  app.post("/api/library/:id/add-to-schedule", requireCoach, async (req, res) => {
+    try {
+      const lib = await storage.getLibraryExercises();
+      const ex = lib.find((e) => e.id === Number(req.params.id));
+      if (!ex) return res.status(404).json({ error: "Not found" });
+      const { scheduleId, dayOfWeek } = req.body;
+      if (!scheduleId || dayOfWeek === undefined) return res.status(400).json({ error: "scheduleId and dayOfWeek required" });
+      const created = await storage.createExercise({
+        scheduleId: parseInt(scheduleId),
+        title: ex.title,
+        description: ex.description || undefined,
+        dayOfWeek: parseInt(dayOfWeek),
+        orderIndex: 0,
+        sets: ex.defaultSets || undefined,
+        reps: ex.defaultReps || undefined,
+        durationSeconds: ex.durationSeconds || undefined,
+        notes: ex.notes || undefined,
+        videoUrl: ex.videoUrl || undefined,
+        videoFilename: ex.videoFilename || undefined,
+      });
+      res.json(created);
+    } catch (err: any) { res.status(500).json({ error: err.message || "Failed to add" }); }
+  });
+
+  // ─── COACH PROGRESS OVERVIEW ────────────────────────────────────────────────
   app.get("/api/coach/progress", requireCoach, async (req, res) => {
     try {
       const [clients, allCompletions] = await Promise.all([

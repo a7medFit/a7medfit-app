@@ -51,6 +51,24 @@ export const insertExerciseSchema = createInsertSchema(exercises).omit({ id: tru
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 
+// Exercise Library (coach's reusable exercise collection)
+export const libraryExercises = pgTable("library_exercises", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  muscleGroup: text("muscle_group").notNull().default("Other"),
+  defaultSets: integer("default_sets"),
+  defaultReps: integer("default_reps"),
+  durationSeconds: integer("duration_seconds"),
+  notes: text("notes"),
+  videoUrl: text("video_url"),
+  videoFilename: text("video_filename"),
+});
+
+export const insertLibraryExerciseSchema = createInsertSchema(libraryExercises).omit({ id: true });
+export type InsertLibraryExercise = z.infer<typeof insertLibraryExerciseSchema>;
+export type LibraryExercise = typeof libraryExercises.$inferSelect;
+
 // Client-Schedule assignments
 export const clientSchedules = pgTable("client_schedules", {
   id: serial("id").primaryKey(),

@@ -2,12 +2,13 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { eq, and } from "drizzle-orm";
 import {
-  users, schedules, exercises, clientSchedules, completions,
+  users, schedules, exercises, clientSchedules, completions, libraryExercises,
   type User, type InsertUser,
   type Schedule, type InsertSchedule,
   type Exercise, type InsertExercise,
   type ClientSchedule, type InsertClientSchedule,
   type Completion, type InsertCompletion,
+  type LibraryExercise, type InsertLibraryExercise,
 } from "@shared/schema";
 
 // PostgreSQL connection
@@ -89,6 +90,24 @@ async function initDb() {
         sets_data TEXT
       );
       ALTER TABLE completions ADD COLUMN IF NOT EXISTS sets_data TEXT;
+      CREATE TABLE IF NOT EXISTS library_exercises (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        muscle_group TEXT NOT NULL DEFAULT 'Other',
+        default_sets INTEGER,
+        default_reps INTEGER,
+        duration_seconds INTEGER,
+        notes TEXT,
+        video_url TEXT,
+        video_filename TEXT
+      );
+      -- Migrate existing exercises into library (skip duplicates by title)
+      INSERT INTO library_exercises (title, description, muscle_group, default_sets, default_reps, duration_seconds, notes, video_url, video_filename)
+      SELECT DISTINCT ON (title) title, description, 'Other', sets, reps, duration_seconds, notes, video_url, video_filename
+      FROM exercises
+      WHERE title NOT IN (SELECT title FROM library_exercises)
+      ORDER BY title, id;
     `);
     console.log("Database tables initialized successfully");
   } catch (err) {
@@ -142,6 +161,12 @@ export interface IStorage {
   getCompletionByClientAndExercise(clientId: number, exerciseId: number): Promise<Completion | undefined>;
   getAllCompletions(): Promise<Completion[]>;
   updateCompletion(id: number, data: Partial<InsertCompletion>): Promise<Completion | undefined>;
+
+  // Library
+  getLibraryExercises(): Promise<LibraryExercise[]>;
+  createLibraryExercise(data: InsertLibraryExercise): Promise<LibraryExercise>;
+  updateLibraryExercise(id: number, data: Partial<InsertLibraryExercise>): Promise<LibraryExercise | undefined>;
+  deleteLibraryExercise(id: number): Promise<void>;
 }
 
 export const storage: IStorage = {
@@ -265,5 +290,21 @@ export const storage: IStorage = {
   async updateCompletion(id, data) {
     const result = await db.update(completions).set(data).where(eq(completions.id, id)).returning();
     return result[0];
+  },
+
+  // Library
+  async getLibraryExercises() {
+    return db.select().from(libraryExercises);
+  },
+  async createLibraryExercise(data) {
+    const result = await db.insert(libraryExercises).values(data).returning();
+    return result[0];
+  },
+  async updateLibraryExercise(id, data) {
+    const result = await db.update(libraryExercises).set(data).where(eq(libraryExercises.id, id)).returning();
+    return result[0];
+  },
+  async deleteLibraryExercise(id) {
+    await db.delete(libraryExercises).where(eq(libraryExercises.id, id));
   },
 };

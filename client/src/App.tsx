@@ -8,6 +8,7 @@ import CoachDashboard from "./pages/coach/dashboard";
 import CoachSchedules from "./pages/coach/schedules";
 import CoachClients from "./pages/coach/clients";
 import CoachProgress from "./pages/coach/progress";
+import CoachLibrary from "./pages/coach/library";
 import ClientDashboard from "./pages/client/dashboard";
 import ClientSchedule from "./pages/client/schedule";
 import NotFound from "./pages/not-found";
@@ -44,6 +45,7 @@ function AppRoutes() {
           <Route path="/" component={CoachDashboard} />
           <Route path="/schedules" component={CoachSchedules} />
           <Route path="/clients" component={CoachClients} />
+          <Route path="/library" component={CoachLibrary} />
           <Route path="/progress" component={CoachProgress} />
           <Route component={NotFound} />
         </Switch>

@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Calendar, Users, TrendingUp, LogOut, Menu, X, Dumbbell } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, TrendingUp, LogOut, Menu, X, Dumbbell, BookOpen } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,7 @@ interface NavItem {
 const coachNav: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Schedules", href: "/schedules", icon: Calendar },
+  { label: "Library", href: "/library", icon: BookOpen },
   { label: "Clients", href: "/clients", icon: Users },
   { label: "Progress", href: "/progress", icon: TrendingUp },
 ];

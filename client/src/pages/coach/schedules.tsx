@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube } from "lucide-react";
+import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube, BookOpen, Search } from "lucide-react";
 import { format } from "date-fns";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -263,113 +263,19 @@ export default function CoachSchedules() {
             <DialogHeader>
               <DialogTitle>Add Exercise</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 pt-2 max-h-[70vh] overflow-y-auto pr-1">
-              <div className="space-y-1.5">
-                <Label>Exercise Name *</Label>
-                <Input placeholder="e.g. Barbell Squat" value={exerciseForm.title} onChange={(e) => setExerciseForm({ ...exerciseForm, title: e.target.value })} data-testid="input-exercise-title" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Day of Week</Label>
-                <Select value={exerciseForm.dayOfWeek} onValueChange={(v) => setExerciseForm({ ...exerciseForm, dayOfWeek: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Sets</Label>
-                  <Input type="number" placeholder="3" value={exerciseForm.sets} onChange={(e) => setExerciseForm({ ...exerciseForm, sets: e.target.value })} data-testid="input-exercise-sets" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Reps</Label>
-                  <Input type="number" placeholder="10" value={exerciseForm.reps} onChange={(e) => setExerciseForm({ ...exerciseForm, reps: e.target.value })} data-testid="input-exercise-reps" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Duration (s)</Label>
-                  <Input type="number" placeholder="60" value={exerciseForm.durationSeconds} onChange={(e) => setExerciseForm({ ...exerciseForm, durationSeconds: e.target.value })} />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Description</Label>
-                <Textarea placeholder="How to perform this exercise..." value={exerciseForm.description} onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })} rows={2} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Notes</Label>
-                <Input placeholder="e.g. Focus on form, rest 90s between sets" value={exerciseForm.notes} onChange={(e) => setExerciseForm({ ...exerciseForm, notes: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Exercise Video (optional)</Label>
-                {/* Toggle tabs */}
-                <div className="flex rounded-lg border overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setVideoMode("youtube")}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${
-                      videoMode === "youtube" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                    data-testid="video-mode-youtube"
-                  >
-                    <Youtube className="w-4 h-4" /> YouTube Link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVideoMode("upload")}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${
-                      videoMode === "upload" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                    data-testid="video-mode-upload"
-                  >
-                    <Upload className="w-4 h-4" /> Upload File
-                  </button>
-                </div>
-
-                {videoMode === "youtube" ? (
-                  <div className="space-y-1.5">
-                    <Input
-                      placeholder="https://youtube.com/watch?v=..."
-                      value={youtubeUrl}
-                      onChange={(e) => setYoutubeUrl(e.target.value)}
-                      data-testid="input-youtube-url"
-                    />
-                    {youtubeUrl && (
-                      <p className="text-xs text-muted-foreground">Tip: Use an unlisted YouTube video so only your clients can watch it.</p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <div
-                      className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                      onClick={() => fileRef.current?.click()}
-                      data-testid="video-upload-zone"
-                    >
-                      {videoFile ? (
-                        <div className="flex items-center justify-center gap-2 text-primary">
-                          <Play className="w-5 h-5" />
-                          <span className="text-sm font-medium truncate max-w-xs">{videoFile.name}</span>
-                        </div>
-                      ) : (
-                        <>
-                          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-                          <p className="text-sm text-muted-foreground">Click to upload video</p>
-                          <p className="text-xs text-muted-foreground/60 mt-1">MP4, MOV, WebM · Up to 500MB</p>
-                        </>
-                      )}
-                    </div>
-                    <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
-                  </div>
-                )}
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => newExerciseScheduleId && createExerciseMut.mutate(newExerciseScheduleId)}
-                disabled={!exerciseForm.title || createExerciseMut.isPending}
-                data-testid="button-save-exercise"
-              >
-                {createExerciseMut.isPending ? "Adding..." : "Add Exercise"}
-              </Button>
-            </div>
+            <AddExerciseDialog
+              scheduleId={newExerciseScheduleId}
+              exerciseForm={exerciseForm}
+              setExerciseForm={setExerciseForm}
+              videoMode={videoMode}
+              setVideoMode={setVideoMode}
+              youtubeUrl={youtubeUrl}
+              setYoutubeUrl={setYoutubeUrl}
+              videoFile={videoFile}
+              setVideoFile={setVideoFile}
+              fileRef={fileRef}
+              createExerciseMut={createExerciseMut}
+            />
           </DialogContent>
         </Dialog>
 
@@ -502,6 +408,206 @@ export default function CoachSchedules() {
   );
 }
 
+function AddExerciseDialog({ scheduleId, exerciseForm, setExerciseForm, videoMode, setVideoMode, youtubeUrl, setYoutubeUrl, videoFile, setVideoFile, fileRef, createExerciseMut }: any) {
+  const [tab, setTab] = useState<"library" | "custom">("library");
+  const [libSearch, setLibSearch] = useState("");
+  const [selectedLibEx, setSelectedLibEx] = useState<any | null>(null);
+  const [libDay, setLibDay] = useState("0");
+  const { data: library = [] } = useQuery<any[]>({ queryKey: ["/api/library"] });
+  const { toast } = useToast();
+
+  const addFromLibMut = useMutation({
+    mutationFn: async ({ libId, day }: { libId: number; day: string }) => {
+      const res = await apiRequest("POST", `/api/library/${libId}/add-to-schedule`, {
+        scheduleId,
+        dayOfWeek: day,
+      });
+      if (!res.ok) throw new Error("Failed to add");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/schedules/${scheduleId}/exercises`] });
+      setSelectedLibEx(null);
+      toast({ title: "Exercise added to schedule" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to add exercise", variant: "destructive" }),
+  });
+
+  const filteredLib = library.filter((ex: any) =>
+    !libSearch || ex.title.toLowerCase().includes(libSearch.toLowerCase())
+  );
+
+  // Group library by muscle group
+  const libGroups = Array.from(new Set(filteredLib.map((e: any) => e.muscleGroup))).sort() as string[];
+
+  return (
+    <div className="pt-2">
+      {/* Tab switcher */}
+      <div className="flex rounded-lg border overflow-hidden mb-4">
+        <button
+          type="button"
+          onClick={() => setTab("library")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
+            tab === "library" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+        >
+          <BookOpen className="w-4 h-4" /> From Library
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("custom")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
+            tab === "custom" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+        >
+          <Plus className="w-4 h-4" /> Custom Exercise
+        </button>
+      </div>
+
+      {tab === "library" ? (
+        <div className="space-y-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search library..."
+              value={libSearch}
+              onChange={(e) => setLibSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {/* Selected exercise → day picker */}
+          {selectedLibEx ? (
+            <div className="border rounded-xl p-4 space-y-3 bg-primary/5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium text-sm">{selectedLibEx.title}</p>
+                  <p className="text-xs text-muted-foreground">{selectedLibEx.muscleGroup}</p>
+                </div>
+                <button onClick={() => setSelectedLibEx(null)} className="text-muted-foreground hover:text-foreground text-xs underline shrink-0">Change</button>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Add to day</Label>
+                <Select value={libDay} onValueChange={setLibDay}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => addFromLibMut.mutate({ libId: selectedLibEx.id, day: libDay })}
+                disabled={addFromLibMut.isPending}
+              >
+                {addFromLibMut.isPending ? "Adding..." : "Add to Schedule"}
+              </Button>
+            </div>
+          ) : (
+            <div className="max-h-[50vh] overflow-y-auto space-y-4 pr-1">
+              {library.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Your library is empty.</p>
+                  <p className="text-xs mt-1">Add exercises in the Library page first.</p>
+                </div>
+              ) : filteredLib.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-6">No exercises match your search.</p>
+              ) : (
+                libGroups.map((group) => {
+                  const exs = filteredLib.filter((e: any) => e.muscleGroup === group);
+                  if (!exs.length) return null;
+                  return (
+                    <div key={group}>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{group}</p>
+                      <div className="space-y-1.5">
+                        {exs.map((ex: any) => (
+                          <button
+                            key={ex.id}
+                            type="button"
+                            onClick={() => setSelectedLibEx(ex)}
+                            className="w-full text-left flex items-center justify-between px-3 py-2.5 rounded-lg border hover:border-primary/50 hover:bg-primary/5 transition-colors group"
+                            data-testid={`lib-pick-${ex.id}`}
+                          >
+                            <div>
+                              <p className="text-sm font-medium">{ex.title}</p>
+                              {(ex.defaultSets || ex.defaultReps) && (
+                                <p className="text-xs text-muted-foreground">
+                                  {[ex.defaultSets && `${ex.defaultSets} sets`, ex.defaultReps && `${ex.defaultReps} reps`].filter(Boolean).join(" · ")}
+                                </p>
+                              )}
+                            </div>
+                            <Plus className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Custom exercise form */
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          <div className="space-y-1.5">
+            <Label>Exercise Name *</Label>
+            <Input placeholder="e.g. Barbell Squat" value={exerciseForm.title} onChange={(e) => setExerciseForm({ ...exerciseForm, title: e.target.value })} data-testid="input-exercise-title" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Day of Week</Label>
+            <Select value={exerciseForm.dayOfWeek} onValueChange={(v) => setExerciseForm({ ...exerciseForm, dayOfWeek: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5"><Label>Sets</Label><Input type="number" placeholder="3" value={exerciseForm.sets} onChange={(e) => setExerciseForm({ ...exerciseForm, sets: e.target.value })} data-testid="input-exercise-sets" /></div>
+            <div className="space-y-1.5"><Label>Reps</Label><Input type="number" placeholder="10" value={exerciseForm.reps} onChange={(e) => setExerciseForm({ ...exerciseForm, reps: e.target.value })} data-testid="input-exercise-reps" /></div>
+            <div className="space-y-1.5"><Label>Duration (s)</Label><Input type="number" placeholder="60" value={exerciseForm.durationSeconds} onChange={(e) => setExerciseForm({ ...exerciseForm, durationSeconds: e.target.value })} /></div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Description</Label>
+            <Textarea placeholder="How to perform this exercise..." value={exerciseForm.description} onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })} rows={2} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Notes</Label>
+            <Input placeholder="e.g. Focus on form, rest 90s between sets" value={exerciseForm.notes} onChange={(e) => setExerciseForm({ ...exerciseForm, notes: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Exercise Video (optional)</Label>
+            <div className="flex rounded-lg border overflow-hidden">
+              <button type="button" onClick={() => setVideoMode("youtube")} className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${videoMode === "youtube" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`} data-testid="video-mode-youtube">
+                <Youtube className="w-4 h-4" /> YouTube Link
+              </button>
+              <button type="button" onClick={() => setVideoMode("upload")} className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium transition-colors ${videoMode === "upload" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`} data-testid="video-mode-upload">
+                <Upload className="w-4 h-4" /> Upload File
+              </button>
+            </div>
+            {videoMode === "youtube" ? (
+              <Input placeholder="https://youtube.com/watch?v=..." value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} data-testid="input-youtube-url" />
+            ) : (
+              <div>
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors" onClick={() => fileRef.current?.click()} data-testid="video-upload-zone">
+                  {videoFile ? (
+                    <div className="flex items-center justify-center gap-2 text-primary"><Play className="w-5 h-5" /><span className="text-sm font-medium truncate max-w-xs">{videoFile.name}</span></div>
+                  ) : (
+                    <><Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" /><p className="text-sm text-muted-foreground">Click to upload video</p><p className="text-xs text-muted-foreground/60 mt-1">MP4, MOV, WebM · Up to 500MB</p></>
+                  )}
+                </div>
+                <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
+              </div>
+            )}
+          </div>
+          <Button className="w-full" onClick={() => scheduleId && createExerciseMut.mutate(scheduleId)} disabled={!exerciseForm.title || createExerciseMut.isPending} data-testid="button-save-exercise">
+            {createExerciseMut.isPending ? "Adding..." : "Add Exercise"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, onAssign, deleteExercise, editExercise, playVideo }: any) {
   const { data: exercises = [] } = useQuery<any[]>({
     queryKey: [`/api/schedules/${schedule.id}/exercises`],
@@ -511,8 +617,28 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
     queryKey: [`/api/schedules/${schedule.id}/clients`],
     enabled: expanded,
   });
+  const { toast } = useToast();
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
-  const byDay = DAYS.map((day, i) => ({ day, exercises: exercises.filter((e: any) => e.dayOfWeek === i) })).filter((d) => d.exercises.length > 0);
+  const handleDropOnDay = async (e: React.DragEvent, dayIndex: number) => {
+    e.preventDefault();
+    setDragOverDay(null);
+    const libId = e.dataTransfer.getData("libraryExerciseId");
+    if (!libId) return;
+    try {
+      const res = await apiRequest("POST", `/api/library/${libId}/add-to-schedule`, {
+        scheduleId: schedule.id,
+        dayOfWeek: dayIndex,
+      });
+      if (!res.ok) throw new Error();
+      queryClient.invalidateQueries({ queryKey: [`/api/schedules/${schedule.id}/exercises`] });
+      toast({ title: "Exercise added", description: `Added to ${DAYS[dayIndex]}` });
+    } catch {
+      toast({ title: "Error", description: "Failed to add exercise", variant: "destructive" });
+    }
+  };
+
+  const byDay = DAYS.map((day, i) => ({ day, dayIndex: i, exercises: exercises.filter((e: any) => e.dayOfWeek === i) })).filter((d) => d.exercises.length > 0);
 
   return (
     <Card data-testid={`schedule-card-${schedule.id}`}>
@@ -551,13 +677,31 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
 
           {/* Exercises by day */}
           {byDay.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">
-              <p className="text-sm">No exercises yet. Add your first exercise.</p>
+            <div
+              className={`text-center py-8 rounded-xl border-2 border-dashed transition-colors ${
+                dragOverDay === -1 ? "border-primary bg-primary/5" : "border-border"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOverDay(-1); }}
+              onDragLeave={() => setDragOverDay(null)}
+              onDrop={(e) => { e.preventDefault(); setDragOverDay(null);
+                const libId = e.dataTransfer.getData("libraryExerciseId");
+                if (libId) handleDropOnDay(e, 0);
+              }}
+            >
+              <p className="text-sm text-muted-foreground">{dragOverDay === -1 ? "Drop here to add" : "No exercises yet — drag from Library or Add Exercise"}</p>
             </div>
           ) : (
-            byDay.map(({ day, exercises: dayExs }) => (
-              <div key={day}>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{day}</h4>
+            byDay.map(({ day, dayIndex, exercises: dayExs }) => (
+              <div
+                key={day}
+                onDragOver={(e) => { e.preventDefault(); setDragOverDay(dayIndex); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverDay(null); }}
+                onDrop={(e) => handleDropOnDay(e, dayIndex)}
+                className={`rounded-xl transition-colors ${
+                  dragOverDay === dayIndex ? "bg-primary/5 outline outline-2 outline-primary/30" : ""
+                }`}
+              >
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">{day}</h4>
                 <div className="space-y-2">
                   {dayExs.map((ex: any) => (
                     <div key={ex.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 group" data-testid={`exercise-row-${ex.id}`}>
