@@ -17,7 +17,7 @@ import { format } from "date-fns";
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function extractYoutubeId(url: string): string {
-  const match = url.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/);
+  const match = url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
   return match ? match[1] : "";
 }
 

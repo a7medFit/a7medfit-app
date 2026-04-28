@@ -25,8 +25,13 @@ function getYouTubeEmbedUrl(url: string) {
   try {
     const u = new URL(url);
     if (u.hostname.includes("youtu.be")) {
+      // https://youtu.be/VIDEO_ID
       videoId = u.pathname.slice(1);
+    } else if (u.pathname.startsWith("/shorts/")) {
+      // https://youtube.com/shorts/VIDEO_ID
+      videoId = u.pathname.replace("/shorts/", "");
     } else {
+      // https://youtube.com/watch?v=VIDEO_ID
       videoId = u.searchParams.get("v") || "";
     }
   } catch {}
