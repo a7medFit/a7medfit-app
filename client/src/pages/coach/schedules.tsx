@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube, BookOpen, Search } from "lucide-react";
+import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube, BookOpen, Search, GripVertical } from "lucide-react";
 import { format } from "date-fns";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -618,9 +618,15 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
     enabled: expanded,
   });
   const { toast } = useToast();
+  // null = nothing being dragged over; -1 = empty schedule drop zone
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
+  // id of exercise being dragged (from this schedule)
+  const [draggingExId, setDraggingExId] = useState<number | null>(null);
+  // drop indicator: { dayIndex, beforeExId } — null beforeExId = end of list
+  const [dropTarget, setDropTarget] = useState<{ dayIndex: number; beforeExId: number | null } | null>(null);
 
-  const handleDropOnDay = async (e: React.DragEvent, dayIndex: number) => {
+  // ── Library-card drop (from Library page) ────────────────────────────────
+  const handleLibraryDrop = async (e: React.DragEvent, dayIndex: number) => {
     e.preventDefault();
     setDragOverDay(null);
     const libId = e.dataTransfer.getData("libraryExerciseId");
@@ -638,7 +644,62 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
     }
   };
 
-  const byDay = DAYS.map((day, i) => ({ day, dayIndex: i, exercises: exercises.filter((e: any) => e.dayOfWeek === i) })).filter((d) => d.exercises.length > 0);
+  // ── Exercise row drop (reorder / move day) ───────────────────────────────
+  const handleExerciseDrop = async (e: React.DragEvent, targetDayIndex: number, beforeExId: number | null) => {
+    e.preventDefault();
+    setDropTarget(null);
+    setDraggingExId(null);
+    const exId = Number(e.dataTransfer.getData("scheduleExerciseId"));
+    if (!exId) return;
+
+    const draggedEx = exercises.find((x: any) => x.id === exId);
+    if (!draggedEx) return;
+
+    // Build new ordered list for the target day
+    const dayExercises = exercises
+      .filter((x: any) => x.dayOfWeek === targetDayIndex && x.id !== exId)
+      .sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+
+    // Insert dragged item at position
+    const insertIdx = beforeExId === null
+      ? dayExercises.length
+      : dayExercises.findIndex((x: any) => x.id === beforeExId);
+    const newOrder = [
+      ...dayExercises.slice(0, insertIdx < 0 ? dayExercises.length : insertIdx),
+      { ...draggedEx, dayOfWeek: targetDayIndex },
+      ...dayExercises.slice(insertIdx < 0 ? dayExercises.length : insertIdx),
+    ];
+
+    // Persist all affected exercises
+    try {
+      await Promise.all(
+        newOrder.map((ex: any, idx: number) =>
+          apiRequest("PATCH", `/api/exercises/${ex.id}`, {
+            dayOfWeek: targetDayIndex,
+            orderIndex: idx,
+          })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: [`/api/schedules/${schedule.id}/exercises`] });
+    } catch {
+      toast({ title: "Error", description: "Failed to reorder exercises", variant: "destructive" });
+    }
+  };
+
+  // Combined drop handler for a day zone
+  const handleDayDrop = (e: React.DragEvent, dayIndex: number, beforeExId: number | null = null) => {
+    const isLib = e.dataTransfer.getData("libraryExerciseId");
+    const isEx  = e.dataTransfer.getData("scheduleExerciseId");
+    if (isLib) handleLibraryDrop(e, dayIndex);
+    else if (isEx) handleExerciseDrop(e, dayIndex, beforeExId);
+  };
+
+  const byDay = DAYS.map((day, i) => ({
+    day, dayIndex: i,
+    exercises: exercises
+      .filter((e: any) => e.dayOfWeek === i)
+      .sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
+  })).filter((d) => d.exercises.length > 0 || dragOverDay === d.dayIndex);
 
   return (
     <Card data-testid={`schedule-card-${schedule.id}`}>
@@ -683,71 +744,159 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
               }`}
               onDragOver={(e) => { e.preventDefault(); setDragOverDay(-1); }}
               onDragLeave={() => setDragOverDay(null)}
-              onDrop={(e) => { e.preventDefault(); setDragOverDay(null);
-                const libId = e.dataTransfer.getData("libraryExerciseId");
-                if (libId) handleDropOnDay(e, 0);
-              }}
+              onDrop={(e) => { e.preventDefault(); setDragOverDay(null); handleDayDrop(e, 0); }}
             >
-              <p className="text-sm text-muted-foreground">{dragOverDay === -1 ? "Drop here to add" : "No exercises yet — drag from Library or Add Exercise"}</p>
+              <p className="text-sm text-muted-foreground">{dragOverDay === -1 ? "Drop here to add" : "No exercises yet — drag from Library or use Add Exercise"}</p>
             </div>
           ) : (
             byDay.map(({ day, dayIndex, exercises: dayExs }) => (
               <div
                 key={day}
-                onDragOver={(e) => { e.preventDefault(); setDragOverDay(dayIndex); }}
-                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverDay(null); }}
-                onDrop={(e) => handleDropOnDay(e, dayIndex)}
-                className={`rounded-xl transition-colors ${
-                  dragOverDay === dayIndex ? "bg-primary/5 outline outline-2 outline-primary/30" : ""
-                }`}
+                className="rounded-xl transition-all"
               >
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">{day}</h4>
-                <div className="space-y-2">
+                <div
+                  className={`space-y-1 rounded-lg p-1 transition-colors ${
+                    dropTarget?.dayIndex === dayIndex ? "bg-primary/5" : ""
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    // Only update if not hovering a row (rows handle their own)
+                    if ((e.target as HTMLElement).closest("[data-ex-row]")) return;
+                    setDropTarget({ dayIndex, beforeExId: null });
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropTarget(null);
+                  }}
+                  onDrop={(e) => { handleDayDrop(e, dayIndex, null); }}
+                >
                   {dayExs.map((ex: any) => (
-                    <div key={ex.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 group" data-testid={`exercise-row-${ex.id}`}>
-                      <div className="flex items-center gap-3 min-w-0">
-                        {ex.videoUrl ? (
-                          <button
-                            onClick={() => playVideo({ ...ex, scheduleId: schedule.id })}
-                            className="shrink-0 w-7 h-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center transition-colors"
-                            title="Watch video"
-                            data-testid={`button-play-video-${ex.id}`}
-                          >
-                            <Play className="w-3.5 h-3.5 text-primary" />
-                          </button>
-                        ) : (
-                          <div className="shrink-0 w-7 h-7" />
-                        )}
-                        <div className="min-w-0">
-                          <span className="text-sm font-medium">{ex.title}</span>
-                          {(ex.sets || ex.reps) && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`].filter(Boolean).join(" · ")}
-                            </span>
-                          )}
+                    <div key={ex.id}>
+                      {/* Drop indicator above this row */}
+                      {dropTarget?.dayIndex === dayIndex && dropTarget?.beforeExId === ex.id && (
+                        <div className="h-0.5 bg-primary rounded-full mx-2 my-0.5" />
+                      )}
+
+                      <div
+                        data-ex-row
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("scheduleExerciseId", String(ex.id));
+                          e.dataTransfer.effectAllowed = "move";
+                          setDraggingExId(ex.id);
+                        }}
+                        onDragEnd={() => { setDraggingExId(null); setDropTarget(null); }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          const isUpperHalf = e.clientY < rect.top + rect.height / 2;
+                          setDropTarget({ dayIndex, beforeExId: isUpperHalf ? ex.id : null });
+                          // if lower half, look for next sibling
+                          if (!isUpperHalf) {
+                            const idx = dayExs.findIndex((x: any) => x.id === ex.id);
+                            const nextEx = dayExs[idx + 1];
+                            setDropTarget({ dayIndex, beforeExId: nextEx ? nextEx.id : null });
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.stopPropagation();
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          const isUpperHalf = e.clientY < rect.top + rect.height / 2;
+                          const idx = dayExs.findIndex((x: any) => x.id === ex.id);
+                          const beforeId = isUpperHalf ? ex.id : (dayExs[idx + 1]?.id ?? null);
+                          handleDayDrop(e, dayIndex, beforeId);
+                        }}
+                        className={`flex items-center justify-between p-3 rounded-lg bg-muted/40 group cursor-grab active:cursor-grabbing transition-opacity ${
+                          draggingExId === ex.id ? "opacity-40" : "opacity-100"
+                        }`}
+                        data-testid={`exercise-row-${ex.id}`}
+                      >
+                        {/* Drag handle */}
+                        <div className="shrink-0 mr-1 text-muted-foreground/40 hover:text-muted-foreground cursor-grab">
+                          <GripVertical className="w-4 h-4" />
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                        <button
-                          onClick={() => editExercise({ ...ex, scheduleId: schedule.id })}
-                          className="p-1.5 rounded hover:text-primary"
-                          data-testid={`button-edit-exercise-${ex.id}`}
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => deleteExercise(ex.id)}
-                          className="p-1.5 rounded hover:text-destructive"
-                          data-testid={`button-delete-exercise-${ex.id}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {ex.videoUrl ? (
+                            <button
+                              onClick={() => playVideo({ ...ex, scheduleId: schedule.id })}
+                              className="shrink-0 w-7 h-7 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center transition-colors"
+                              title="Watch video"
+                              data-testid={`button-play-video-${ex.id}`}
+                            >
+                              <Play className="w-3.5 h-3.5 text-primary" />
+                            </button>
+                          ) : (
+                            <div className="shrink-0 w-7 h-7" />
+                          )}
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium">{ex.title}</span>
+                            {(ex.sets || ex.reps) && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`].filter(Boolean).join(" · ")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={() => editExercise({ ...ex, scheduleId: schedule.id })}
+                            className="p-1.5 rounded hover:text-primary"
+                            data-testid={`button-edit-exercise-${ex.id}`}
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => deleteExercise(ex.id)}
+                            className="p-1.5 rounded hover:text-destructive"
+                            data-testid={`button-delete-exercise-${ex.id}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
+
+                  {/* Drop indicator at end of list */}
+                  {dropTarget?.dayIndex === dayIndex && dropTarget?.beforeExId === null && (
+                    <div className="h-0.5 bg-primary rounded-full mx-2 my-0.5" />
+                  )}
+
+                  {/* Drop zone for other-day drags — shown when dragging over day header area */}
+                  {dragOverDay === dayIndex && !dropTarget && (
+                    <div className="h-8 rounded-lg border-2 border-dashed border-primary/40 flex items-center justify-center">
+                      <span className="text-xs text-muted-foreground">Drop here</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
+          )}
+
+          {/* Day drop zones for moving to a day with no exercises (only visible while dragging an exercise row) */}
+          {draggingExId !== null && (
+            <div className="grid grid-cols-4 gap-2">
+              {DAYS.map((day, i) => {
+                const alreadyShown = byDay.some((d) => d.dayIndex === i);
+                if (alreadyShown) return null;
+                return (
+                  <div
+                    key={i}
+                    onDragOver={(e) => { e.preventDefault(); setDropTarget({ dayIndex: i, beforeExId: null }); }}
+                    onDragLeave={() => setDropTarget(null)}
+                    onDrop={(e) => handleDayDrop(e, i, null)}
+                    className={`text-center py-2 rounded-lg border-2 border-dashed text-xs text-muted-foreground transition-colors cursor-copy ${
+                      dropTarget?.dayIndex === i ? "border-primary bg-primary/10 text-primary" : "border-border"
+                    }`}
+                  >
+                    {day}
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {/* Actions */}
