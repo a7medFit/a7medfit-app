@@ -475,7 +475,7 @@ export default function CoachSchedules() {
                     allowFullScreen
                   />
                 ) : (
-                  <video src={videoEx.videoUrl} controls autoPlay className="w-full h-full" />
+                  <video src={videoEx.videoUrl} controls autoPlay muted className="w-full h-full" />
                 )}
               </div>
             )}

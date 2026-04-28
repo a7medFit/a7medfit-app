@@ -411,6 +411,7 @@ export default function ClientSchedule() {
               <video
                 src={videoEx.videoUrl.replace("__PORT_5000__", "")}
                 controls
+                muted
                 className="w-full rounded-lg"
                 style={{ maxHeight: "60vh" }}
                 data-testid="exercise-video-player"
