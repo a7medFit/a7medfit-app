@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "http";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import multer from "multer";
@@ -16,7 +16,7 @@ import { z } from "zod";
 
 const BCRYPT_ROUNDS = 10;
 
-const MemoryStore = createMemoryStore(session);
+const PgStore = connectPgSimple(session);
 
 // Cloudinary config (only if credentials are set)
 const useCloudinary = !!(
@@ -107,7 +107,11 @@ export function registerRoutes(httpServer: Server, app: Express) {
       secret: process.env.SESSION_SECRET || crypto.randomUUID(),
       resave: false,
       saveUninitialized: false,
-      store: new MemoryStore({ checkPeriod: 86400000 }),
+      store: new PgStore({
+        conString: process.env.DATABASE_URL,
+        tableName: "user_sessions",
+        createTableIfMissing: true,
+      }),
       cookie: { secure: false, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
     })
   );
