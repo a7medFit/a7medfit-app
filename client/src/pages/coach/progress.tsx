@@ -56,13 +56,13 @@ export default function CoachProgress() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <span className="font-semibold text-sm">{p.client.name}</span>
-                            <span className="text-xs text-muted-foreground ml-2">{p.client.email}</span>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-sm truncate">{p.client.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">{p.client.email}</div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs gap-1">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="outline" className="text-xs gap-1 whitespace-nowrap">
                               <CheckCircle2 className="w-3 h-3 text-green-500" />
                               {doneEx}/{totalEx}
                             </Badge>
