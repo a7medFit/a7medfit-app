@@ -922,7 +922,7 @@ function AssignClientsPanel({ scheduleId, clients, onAssign, onUnassign }: any) 
   const assignedIds = assignments.map((a: any) => a.clientId);
 
   return (
-    <div className="space-y-3 pt-2">
+    <div className="space-y-3 pt-2 max-h-[60vh] overflow-y-auto pr-1">
       {clients.length === 0 ? (
         <p className="text-muted-foreground text-sm text-center py-4">No clients registered yet.</p>
       ) : (
