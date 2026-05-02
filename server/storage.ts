@@ -218,7 +218,7 @@ export const storage: IStorage = {
     const ids = await storage.getClientScheduleIds(clientId);
     if (ids.length === 0) return [];
     const all = await db.select().from(schedules);
-    return all.filter((s) => ids.includes(s.id));
+    return all.filter((s) => ids.includes(s.id) && s.status === 'active');
   },
   async updateSchedule(id, data) {
     const result = await db.update(schedules).set(data).where(eq(schedules.id, id)).returning();
