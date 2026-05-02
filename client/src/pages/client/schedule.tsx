@@ -51,12 +51,13 @@ export default function ClientSchedule() {
   const [rating, setRating] = useState("");
   const [activeDay, setActiveDay] = useState(new Date().getDay());
   const [videoEx, setVideoEx] = useState<any | null>(null);
+  const [lastSessionData, setLastSessionData] = useState<SetRow[] | null>(null);
 
   const { data: schedule } = useQuery<any>({ queryKey: [`/api/schedules/${scheduleId}`] });
   const { data: exercises = [] } = useQuery<any[]>({ queryKey: [`/api/schedules/${scheduleId}/exercises`] });
   const { data: completions = [] } = useQuery<any[]>({ queryKey: ["/api/completions"] });
 
-  const openLog = (ex: any) => {
+  const openLog = async (ex: any) => {
     // Pre-fill with coach's prescribed reps
     setSets([
       { reps: ex.reps ? String(ex.reps) : "", weight: "" },
@@ -66,7 +67,16 @@ export default function ClientSchedule() {
     setNotes("");
     setRating("");
     setEditingCompletionId(null);
+    setLastSessionData(null);
     setLogExercise(ex);
+    // Fetch last session by exercise title (cross-schedule)
+    try {
+      const res = await apiRequest("GET", `/api/completions/last-by-title?title=${encodeURIComponent(ex.title)}`);
+      const data = await res.json();
+      if (data?.sets_data) {
+        try { setLastSessionData(JSON.parse(data.sets_data)); } catch {}
+      }
+    } catch {}
   };
 
   const openEdit = (ex: any) => {
@@ -315,7 +325,8 @@ export default function ClientSchedule() {
 
               {/* 3 rows */}
               {sets.map((s, i) => {
-                const last = logExercise ? getLastSets(logExercise.id) : null;
+                // Prefer cross-schedule last session; fall back to same-schedule completion
+                const last = lastSessionData ?? (logExercise ? getLastSets(logExercise.id) : null);
                 const lastRow = last?.[i];
                 return (
                   <div key={i} className="space-y-0.5">

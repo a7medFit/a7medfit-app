@@ -463,6 +463,27 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // Returns the most recent completion for the logged-in client matching a given exercise title
+  app.get("/api/completions/last-by-title", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const title = req.query.title as string;
+      if (!title) return res.json(null);
+      // Join with exercises to find by title
+      const pool = (storage as any).pool;
+      const result = await pool.query(
+        `SELECT c.* FROM completions c
+         JOIN exercises e ON e.id = c.exercise_id
+         WHERE c.client_id = $1 AND LOWER(TRIM(e.title)) = LOWER(TRIM($2))
+         ORDER BY c.completed_at DESC LIMIT 1`,
+        [user.id, title]
+      );
+      res.json(result.rows[0] || null);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get last completion" });
+    }
+  });
+
   app.get("/api/schedules/:id/completions", requireAuth, async (req, res) => {
     try {
       res.json(await storage.getCompletionsBySchedule(Number(req.params.id)));
