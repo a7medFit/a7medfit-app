@@ -10,7 +10,7 @@ import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import bcrypt from "bcrypt";
 import rateLimit from "express-rate-limit";
-import { storage } from "./storage";
+import { storage, pool } from "./storage";
 import { insertUserSchema, insertScheduleSchema, insertExerciseSchema, insertCompletionSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -470,7 +470,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const title = req.query.title as string;
       if (!title) return res.json(null);
       // Join with exercises to find by title
-      const pool = (storage as any).pool;
       const result = await pool.query(
         `SELECT c.* FROM completions c
          JOIN exercises e ON e.id = c.exercise_id

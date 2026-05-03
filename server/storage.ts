@@ -33,6 +33,7 @@ const pool = new Pool({
 });
 
 export const db = drizzle(pool);
+export { pool };
 
 // Initialize tables (create if not exist)
 async function initDb() {
