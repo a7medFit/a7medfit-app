@@ -2,13 +2,14 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { eq, and } from "drizzle-orm";
 import {
-  users, schedules, exercises, clientSchedules, completions, libraryExercises,
+  users, schedules, exercises, clientSchedules, completions, libraryExercises, cardioSessions,
   type User, type InsertUser,
   type Schedule, type InsertSchedule,
   type Exercise, type InsertExercise,
   type ClientSchedule, type InsertClientSchedule,
   type Completion, type InsertCompletion,
   type LibraryExercise, type InsertLibraryExercise,
+  type CardioSession, type InsertCardioSession,
 } from "@shared/schema";
 
 // PostgreSQL connection
@@ -109,6 +110,19 @@ async function initDb() {
       FROM exercises
       WHERE title NOT IN (SELECT title FROM library_exercises)
       ORDER BY title, id;
+      -- Cardio sessions table
+      CREATE TABLE IF NOT EXISTS cardio_sessions (
+        id SERIAL PRIMARY KEY,
+        client_id INTEGER NOT NULL,
+        schedule_id INTEGER,
+        cardio_type TEXT NOT NULL,
+        duration_minutes INTEGER,
+        distance_km REAL,
+        calories_burned INTEGER,
+        notes TEXT,
+        logged_at TEXT NOT NULL,
+        day_of_week INTEGER
+      );
     `);
     console.log("Database tables initialized successfully");
   } catch (err) {
@@ -168,6 +182,12 @@ export interface IStorage {
   createLibraryExercise(data: InsertLibraryExercise): Promise<LibraryExercise>;
   updateLibraryExercise(id: number, data: Partial<InsertLibraryExercise>): Promise<LibraryExercise | undefined>;
   deleteLibraryExercise(id: number): Promise<void>;
+
+  // Cardio
+  createCardioSession(data: InsertCardioSession): Promise<CardioSession>;
+  getCardioByClient(clientId: number): Promise<CardioSession[]>;
+  getCardioBySchedule(scheduleId: number): Promise<CardioSession[]>;
+  deleteCardioSession(id: number): Promise<void>;
 }
 
 export const storage: IStorage = {
@@ -307,5 +327,20 @@ export const storage: IStorage = {
   },
   async deleteLibraryExercise(id) {
     await db.delete(libraryExercises).where(eq(libraryExercises.id, id));
+  },
+
+  // Cardio
+  async createCardioSession(data) {
+    const result = await db.insert(cardioSessions).values(data).returning();
+    return result[0];
+  },
+  async getCardioByClient(clientId) {
+    return db.select().from(cardioSessions).where(eq(cardioSessions.clientId, clientId)).orderBy(cardioSessions.loggedAt);
+  },
+  async getCardioBySchedule(scheduleId) {
+    return db.select().from(cardioSessions).where(eq(cardioSessions.scheduleId, scheduleId)).orderBy(cardioSessions.loggedAt);
+  },
+  async deleteCardioSession(id) {
+    await db.delete(cardioSessions).where(eq(cardioSessions.id, id));
   },
 };

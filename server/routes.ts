@@ -695,4 +695,69 @@ export function registerRoutes(httpServer: Server, app: Express) {
       res.status(500).json({ error: "Failed to get progress" });
     }
   });
+
+  // ── Cardio routes ──────────────────────────────────────────
+  // Log a cardio session (client)
+  app.post("/api/cardio", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { cardioType, durationMinutes, distanceKm, caloriesBurned, notes, scheduleId, dayOfWeek } = req.body;
+      if (!cardioType) return res.status(400).json({ error: "cardioType required" });
+      const session = await storage.createCardioSession({
+        clientId: user.id,
+        scheduleId: scheduleId ? Number(scheduleId) : null,
+        cardioType,
+        durationMinutes: durationMinutes ? Number(durationMinutes) : null,
+        distanceKm: distanceKm ? Number(distanceKm) : null,
+        caloriesBurned: caloriesBurned ? Number(caloriesBurned) : null,
+        notes: notes || null,
+        loggedAt: new Date().toISOString(),
+        dayOfWeek: dayOfWeek !== undefined ? Number(dayOfWeek) : null,
+      });
+      res.json(session);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to log cardio" });
+    }
+  });
+
+  // Get my cardio sessions (client)
+  app.get("/api/cardio", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const sessions = await storage.getCardioByClient(user.id);
+      res.json(sessions);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get cardio" });
+    }
+  });
+
+  // Get cardio sessions for a schedule (coach)
+  app.get("/api/schedules/:id/cardio", requireAuth, async (req, res) => {
+    try {
+      const sessions = await storage.getCardioBySchedule(Number(req.params.id));
+      res.json(sessions);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get cardio" });
+    }
+  });
+
+  // Get all cardio for a client (coach progress view)
+  app.get("/api/clients/:id/cardio", requireCoach, async (req, res) => {
+    try {
+      const sessions = await storage.getCardioByClient(Number(req.params.id));
+      res.json(sessions);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get cardio" });
+    }
+  });
+
+  // Delete a cardio session
+  app.delete("/api/cardio/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteCardioSession(Number(req.params.id));
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete cardio" });
+    }
+  });
 }

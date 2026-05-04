@@ -1,13 +1,54 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 import Layout from "@/components/layout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, Calendar, CheckCircle2, Dumbbell, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingUp, Calendar, CheckCircle2, Dumbbell, ChevronDown, ChevronUp, Bike, Timer, Flame } from "lucide-react";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function ClientCardio({ clientId }: { clientId: number }) {
+  const { data: sessions = [] } = useQuery<any[]>({ queryKey: ["/api/clients", clientId, "cardio"], queryFn: async () => {
+    const { apiRequest } = await import("@/lib/queryClient");
+    const res = await apiRequest("GET", `/api/clients/${clientId}/cardio`);
+    return res.json();
+  } });
+
+  if (sessions.length === 0) return (
+    <div className="text-xs text-muted-foreground italic px-1">No cardio logged yet.</div>
+  );
+
+  // Group by day
+  const byDay: Record<number, any[]> = {};
+  sessions.forEach((s: any) => {
+    const d = s.dayOfWeek ?? -1;
+    if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(s);
+  });
+
+  return (
+    <div className="space-y-2">
+      {Object.entries(byDay).map(([day, daySessions]) => (
+        <div key={day}>
+          {Number(day) >= 0 && <div className="text-xs font-semibold text-muted-foreground mb-1">{DAYS[Number(day)]}</div>}
+          {(daySessions as any[]).map((s: any) => (
+            <div key={s.id} className="flex flex-wrap items-center gap-3 text-xs bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200/30 rounded-lg px-3 py-2 mb-1">
+              <Bike className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span className="font-medium">{s.cardioType}</span>
+              {s.durationMinutes && <span className="flex items-center gap-1 text-muted-foreground"><Timer className="w-3 h-3" />{s.durationMinutes} min</span>}
+              {s.distanceKm && <span className="text-muted-foreground">{s.distanceKm} km</span>}
+              {s.caloriesBurned && <span className="flex items-center gap-1 text-muted-foreground"><Flame className="w-3 h-3 text-orange-400" />{s.caloriesBurned} kcal</span>}
+              {s.notes && <span className="text-muted-foreground italic">{s.notes}</span>}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function CoachProgress() {
   const { data: progress = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/coach/progress"] });
@@ -147,6 +188,15 @@ export default function CoachProgress() {
                           )}
                         </div>
                       ))}
+
+                      {/* Cardio sessions */}
+                      <div className="p-4 rounded-lg bg-blue-50/30 dark:bg-blue-950/10 border border-blue-200/20 space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Bike className="w-4 h-4 text-blue-500" />
+                          <span className="font-medium text-sm">Cardio Sessions</span>
+                        </div>
+                        <ClientCardio clientId={p.client.id} />
+                      </div>
                     </CardContent>
                   )}
                 </Card>

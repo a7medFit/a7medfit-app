@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell, Pencil } from "lucide-react";
+import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell, Pencil, Timer, Flame, Bike } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -52,10 +52,17 @@ export default function ClientSchedule() {
   const [activeDay, setActiveDay] = useState(new Date().getDay());
   const [videoEx, setVideoEx] = useState<any | null>(null);
   const [lastSessionData, setLastSessionData] = useState<SetRow[] | null>(null);
+  const [cardioOpen, setCardioOpen] = useState(false);
+  const [cardioType, setCardioType] = useState("");
+  const [cardioDuration, setCardioDuration] = useState("");
+  const [cardioDistance, setCardioDistance] = useState("");
+  const [cardioCalories, setCardioCalories] = useState("");
+  const [cardioNotes, setCardioNotes] = useState("");
 
   const { data: schedule } = useQuery<any>({ queryKey: [`/api/schedules/${scheduleId}`] });
   const { data: exercises = [] } = useQuery<any[]>({ queryKey: [`/api/schedules/${scheduleId}/exercises`] });
   const { data: completions = [] } = useQuery<any[]>({ queryKey: ["/api/completions"] });
+  const { data: cardioSessions = [] } = useQuery<any[]>({ queryKey: ["/api/cardio"] });
 
   const openLog = async (ex: any) => {
     // Pre-fill with coach's prescribed reps
@@ -138,6 +145,34 @@ export default function ClientSchedule() {
       });
     },
     onError: () => toast({ title: "Error", description: "Failed to save exercise entry", variant: "destructive" }),
+  });
+
+  const cardioMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/cardio", {
+        cardioType,
+        durationMinutes: cardioDuration ? parseInt(cardioDuration) : undefined,
+        distanceKm: cardioDistance ? parseFloat(cardioDistance) : undefined,
+        caloriesBurned: cardioCalories ? parseInt(cardioCalories) : undefined,
+        notes: cardioNotes || undefined,
+        scheduleId,
+        dayOfWeek: activeDay,
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cardio"] });
+      setCardioOpen(false);
+      setCardioType(""); setCardioDuration(""); setCardioDistance(""); setCardioCalories(""); setCardioNotes("");
+      toast({ title: "Cardio logged!", description: "Nice work!" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to log cardio", variant: "destructive" }),
+  });
+
+  const deleteCardioMut = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/cardio/${id}`).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/cardio"] }),
   });
 
   const isDone = (exId: number) => completions.some((c: any) => c.exerciseId === exId);
@@ -304,6 +339,46 @@ export default function ClientSchedule() {
             })
           )}
         </div>
+
+        {/* Cardio section for this day */}
+        {(() => {
+          const dayCardio = cardioSessions.filter((c: any) => c.dayOfWeek === activeDay && c.scheduleId === scheduleId);
+          return (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                  <Bike className="w-4 h-4" /> Cardio
+                </div>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setCardioOpen(true)}>
+                  + Log Cardio
+                </Button>
+              </div>
+              {dayCardio.length === 0 ? (
+                <p className="text-xs text-muted-foreground pl-1">No cardio logged for {DAYS[activeDay]}.</p>
+              ) : (
+                dayCardio.map((c: any) => (
+                  <Card key={c.id} className="border-blue-500/30 bg-blue-50/20 dark:bg-blue-950/10">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Bike className="w-4 h-4 text-blue-500 shrink-0" />
+                          <span className="font-semibold text-sm">{c.cardioType}</span>
+                        </div>
+                        <button onClick={() => deleteCardioMut.mutate(c.id)} className="text-muted-foreground/40 hover:text-destructive text-xs">✕</button>
+                      </div>
+                      <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-muted-foreground">
+                        {c.durationMinutes && <span className="flex items-center gap-1"><Timer className="w-3 h-3" />{c.durationMinutes} min</span>}
+                        {c.distanceKm && <span>📍 {c.distanceKm} km</span>}
+                        {c.caloriesBurned && <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" />{c.caloriesBurned} kcal</span>}
+                        {c.notes && <span className="italic">{c.notes}</span>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Log exercise dialog */}
@@ -438,6 +513,66 @@ export default function ClientSchedule() {
               />
             );
           })()}
+        </DialogContent>
+      </Dialog>
+      {/* Cardio log dialog */}
+      <Dialog open={cardioOpen} onOpenChange={(o) => { if (!o) { setCardioOpen(false); setCardioType(""); setCardioDuration(""); setCardioDistance(""); setCardioCalories(""); setCardioNotes(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Bike className="w-4 h-4" /> Log Cardio — {DAYS[activeDay]}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {/* Cardio type */}
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Type</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {["Treadmill", "Cycling", "Elliptical", "Rowing", "Stairmaster", "Other"].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setCardioType(t)}
+                    className={cn(
+                      "py-2 px-3 rounded-lg text-xs font-medium border transition-colors",
+                      cardioType === t ? "bg-primary text-white border-primary" : "bg-muted border-transparent hover:bg-muted/80"
+                    )}
+                  >{t}</button>
+                ))}
+              </div>
+              {/* Custom type */}
+              <Input
+                className="mt-2 h-8 text-sm"
+                placeholder="Or type a custom activity…"
+                value={["Treadmill","Cycling","Elliptical","Rowing","Stairmaster","Other"].includes(cardioType) ? "" : cardioType}
+                onChange={(e) => setCardioType(e.target.value)}
+              />
+            </div>
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Duration (min)</Label>
+                <Input className="h-8 text-sm mt-1" type="number" placeholder="30" value={cardioDuration} onChange={(e) => setCardioDuration(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Distance (km)</Label>
+                <Input className="h-8 text-sm mt-1" type="number" placeholder="5.0" step="0.1" value={cardioDistance} onChange={(e) => setCardioDistance(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Calories</Label>
+                <Input className="h-8 text-sm mt-1" type="number" placeholder="250" value={cardioCalories} onChange={(e) => setCardioCalories(e.target.value)} />
+              </div>
+            </div>
+            {/* Notes */}
+            <div>
+              <Label className="text-xs text-muted-foreground">Notes (optional)</Label>
+              <Textarea className="mt-1 text-sm" rows={2} placeholder="e.g. felt great, moderate pace…" value={cardioNotes} onChange={(e) => setCardioNotes(e.target.value)} />
+            </div>
+            <Button
+              className="w-full"
+              disabled={!cardioType || cardioMut.isPending}
+              onClick={() => cardioMut.mutate()}
+            >
+              {cardioMut.isPending ? "Saving…" : "Save Cardio"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </Layout>

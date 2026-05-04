@@ -99,3 +99,21 @@ export const completions = pgTable("completions", {
 export const insertCompletionSchema = createInsertSchema(completions).omit({ id: true });
 export type InsertCompletion = z.infer<typeof insertCompletionSchema>;
 export type Completion = typeof completions.$inferSelect;
+
+// Cardio sessions (logged by client)
+export const cardioSessions = pgTable("cardio_sessions", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  scheduleId: integer("schedule_id"),
+  cardioType: text("cardio_type").notNull(), // e.g. "Treadmill", "Cycling", "Elliptical", etc.
+  durationMinutes: integer("duration_minutes"),
+  distanceKm: real("distance_km"),
+  caloriesBurned: integer("calories_burned"),
+  notes: text("notes"),
+  loggedAt: text("logged_at").notNull(),
+  dayOfWeek: integer("day_of_week"),
+});
+
+export const insertCardioSessionSchema = createInsertSchema(cardioSessions).omit({ id: true });
+export type InsertCardioSession = z.infer<typeof insertCardioSessionSchema>;
+export type CardioSession = typeof cardioSessions.$inferSelect;
