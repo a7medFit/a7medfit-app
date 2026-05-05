@@ -1,11 +1,10 @@
 /**
- * MuscleMap — uses react-body-highlighter for a clean flat-polygon body diagram.
- * Dark rounded card, active muscle highlighted in the group's accent color.
+ * MuscleMap — static pre-rendered muscle anatomy images.
+ * Full body diagram with targeted muscle highlighted in accent color.
  * Tap the card to open fullscreen overlay.
  */
 
 import { useState } from "react";
-import Model from "react-body-highlighter";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -45,22 +44,17 @@ const MUSCLE_LABEL_COLOR: Record<string, string> = {
   Other:      "#94a3b8",
 };
 
-// Map our muscle group names → react-body-highlighter muscle slugs + view type
-const MUSCLE_CONFIG: Record<string, {
-  muscles: string[];
-  type: "anterior" | "posterior";
-}> = {
-  Chest:      { muscles: ["chest"],                                      type: "anterior"  },
-  Shoulders:  { muscles: ["front-deltoids", "back-deltoids"],            type: "anterior"  },
-  Biceps:     { muscles: ["biceps"],                                     type: "anterior"  },
-  Abs:        { muscles: ["abs"],                                        type: "anterior"  },
-  Quadriceps: { muscles: ["quadriceps"],                                 type: "anterior"  },
-  Back:       { muscles: ["upper-back", "lower-back", "trapezius"],      type: "posterior" },
-  Triceps:    { muscles: ["triceps"],                                    type: "posterior" },
-  Hamstrings: { muscles: ["hamstring"],                                  type: "posterior" },
-  Calves:     { muscles: ["calves"],                                     type: "posterior" },
-  Glutes:     { muscles: ["gluteal"],                                    type: "posterior" },
-  Other:      { muscles: [],                                             type: "anterior"  },
+const MUSCLE_IMAGE: Record<string, string> = {
+  Chest:      "/muscles/chest.png",
+  Back:       "/muscles/back.png",
+  Shoulders:  "/muscles/shoulders.png",
+  Biceps:     "/muscles/biceps.png",
+  Triceps:    "/muscles/triceps.png",
+  Abs:        "/muscles/abs.png",
+  Quadriceps: "/muscles/quadriceps.png",
+  Hamstrings: "/muscles/hamstrings.png",
+  Calves:     "/muscles/calves.png",
+  Glutes:     "/muscles/glutes.png",
 };
 
 function BodyCard({
@@ -70,12 +64,8 @@ function BodyCard({
   size: number;
   onClick?: () => void;
 }) {
-  const config = MUSCLE_CONFIG[muscleGroup] ?? MUSCLE_CONFIG.Other;
   const color = MUSCLE_LABEL_COLOR[muscleGroup] ?? MUSCLE_LABEL_COLOR.Other;
-
-  const data = config.muscles.length > 0
-    ? [{ name: muscleGroup, muscles: config.muscles as any[] }]
-    : [];
+  const imgSrc = MUSCLE_IMAGE[muscleGroup];
 
   return (
     <div
@@ -93,17 +83,26 @@ function BodyCard({
         justifyContent: "center",
         cursor: onClick ? "pointer" : "default",
         position: "relative",
-        padding: Math.round(size * 0.05),
+        padding: Math.round(size * 0.04),
       }}
     >
-      <Model
-        data={data}
-        type={config.type}
-        bodyColor="#2a2f45"
-        highlightedColors={[color]}
-        style={{ width: "100%", height: "100%" }}
-        svgStyle={{ width: "100%", height: "100%" }}
-      />
+      {imgSrc ? (
+        <img
+          src={imgSrc}
+          alt={muscleGroup}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            filter: "brightness(1.08) contrast(1.05)",
+          }}
+          draggable={false}
+        />
+      ) : (
+        <div style={{ color, fontSize: size * 0.12, fontWeight: 700, opacity: 0.6 }}>
+          {muscleGroup}
+        </div>
+      )}
       {/* Expand hint */}
       {onClick && (
         <div style={{
@@ -157,7 +156,6 @@ export default function MuscleMap({
             gap: 16,
           }}
         >
-          {/* Close button */}
           <button
             onClick={() => setFullscreen(false)}
             style={{
@@ -172,13 +170,11 @@ export default function MuscleMap({
             <X size={20} />
           </button>
 
-          {/* Large body card */}
           <BodyCard
             muscleGroup={muscleGroup}
             size={fullSize}
           />
 
-          {/* Label */}
           <span
             style={{
               fontSize: 22, fontWeight: 700,
