@@ -343,7 +343,7 @@ export default function CoachLibrary() {
                           </p>
                         )}
                         <div className="mt-2">
-                          <MuscleMap muscleGroup={ex.muscleGroup || "Other"} size={32} className="justify-start" />
+                          <MuscleMap muscleGroup={ex.muscleGroup || "Other"} size={64} className="justify-start" />
                         </div>
                         {ex.description && (
                           <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">{ex.description}</p>

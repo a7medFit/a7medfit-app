@@ -392,7 +392,7 @@ export default function ClientSchedule() {
             const mg = inferMuscleGroup(logExercise.title);
             return (
               <div className="flex items-center gap-3 px-1 pb-1">
-                <MuscleMap muscleGroup={mg} size={38} />
+                <MuscleMap muscleGroup={mg} size={80} />
               </div>
             );
           })()}
