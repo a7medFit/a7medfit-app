@@ -1,11 +1,11 @@
 /**
- * MuscleMap — uses react-muscle-highlighter for anatomically accurate SVG body diagrams.
- * Dark rounded card, active muscle highlighted in orange, inactive in dark grey.
+ * MuscleMap — uses react-body-highlighter for a clean flat-polygon body diagram.
+ * Dark rounded card, active muscle highlighted in the group's accent color.
  * Tap the card to open fullscreen overlay.
  */
 
 import { useState } from "react";
-import Body from "react-muscle-highlighter";
+import Model from "react-body-highlighter";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -32,54 +32,50 @@ interface MuscleMapProps {
 }
 
 const MUSCLE_LABEL_COLOR: Record<string, string> = {
-  Chest: "#f97316",
-  Back: "#3b82f6",
-  Shoulders: "#a855f7",
-  Biceps: "#ec4899",
-  Triceps: "#14b8a6",
-  Abs: "#f59e0b",
+  Chest:      "#f97316",
+  Back:       "#3b82f6",
+  Shoulders:  "#a855f7",
+  Biceps:     "#ec4899",
+  Triceps:    "#14b8a6",
+  Abs:        "#f59e0b",
   Quadriceps: "#22c55e",
   Hamstrings: "#84cc16",
-  Calves: "#06b6d4",
-  Glutes: "#f43f5e",
-  Other: "#94a3b8",
+  Calves:     "#06b6d4",
+  Glutes:     "#f43f5e",
+  Other:      "#94a3b8",
 };
 
-// Map our muscle group names → slugs and view side. No zoom or pan — full body always shown.
+// Map our muscle group names → react-body-highlighter muscle slugs + view type
 const MUSCLE_CONFIG: Record<string, {
-  slugs: string[];
-  side: "front" | "back";
+  muscles: string[];
+  type: "anterior" | "posterior";
 }> = {
-  Chest:      { slugs: ["chest"],                                side: "front" },
-  Shoulders:  { slugs: ["deltoids"],                             side: "front" },
-  Biceps:     { slugs: ["biceps"],                               side: "front" },
-  Abs:        { slugs: ["abs"],                                  side: "front" },
-  Quadriceps: { slugs: ["quadriceps"],                           side: "front" },
-  Back:       { slugs: ["upper-back", "lower-back", "trapezius"], side: "back"  },
-  Triceps:    { slugs: ["triceps"],                              side: "back"  },
-  Hamstrings: { slugs: ["hamstring"],                            side: "back"  },
-  Calves:     { slugs: ["calves"],                               side: "back"  },
-  Glutes:     { slugs: ["gluteal"],                              side: "back"  },
-  Other:      { slugs: [],                                       side: "front" },
+  Chest:      { muscles: ["chest"],                                      type: "anterior"  },
+  Shoulders:  { muscles: ["front-deltoids", "back-deltoids"],            type: "anterior"  },
+  Biceps:     { muscles: ["biceps"],                                     type: "anterior"  },
+  Abs:        { muscles: ["abs"],                                        type: "anterior"  },
+  Quadriceps: { muscles: ["quadriceps"],                                 type: "anterior"  },
+  Back:       { muscles: ["upper-back", "lower-back", "trapezius"],      type: "posterior" },
+  Triceps:    { muscles: ["triceps"],                                    type: "posterior" },
+  Hamstrings: { muscles: ["hamstring"],                                  type: "posterior" },
+  Calves:     { muscles: ["calves"],                                     type: "posterior" },
+  Glutes:     { muscles: ["gluteal"],                                    type: "posterior" },
+  Other:      { muscles: [],                                             type: "anterior"  },
 };
 
 function BodyCard({
-  config, labelColor, highlightColor, size, onClick,
+  muscleGroup, size, onClick,
 }: {
-  config: { slugs: string[]; side: "front" | "back" };
-  labelColor: string;
-  highlightColor: string;
+  muscleGroup: string;
   size: number;
   onClick?: () => void;
 }) {
-  const data = config.slugs.map((slug) => ({
-    slug,
-    color: highlightColor,
-    intensity: 2 as const,
-  }));
+  const config = MUSCLE_CONFIG[muscleGroup] ?? MUSCLE_CONFIG.Other;
+  const color = MUSCLE_LABEL_COLOR[muscleGroup] ?? MUSCLE_LABEL_COLOR.Other;
 
-  // Scale the body to fit the card with a little padding
-  const baseScale = (size * 0.88) / 62;
+  const data = config.muscles.length > 0
+    ? [{ name: muscleGroup, muscles: config.muscles as any[] }]
+    : [];
 
   return (
     <div
@@ -87,7 +83,7 @@ function BodyCard({
       style={{
         width: size,
         height: size,
-        borderRadius: Math.round(size * 0.2),
+        borderRadius: Math.round(size * 0.18),
         background: "linear-gradient(145deg, #1e2132 0%, #161824 100%)",
         overflow: "hidden",
         flexShrink: 0,
@@ -97,16 +93,16 @@ function BodyCard({
         justifyContent: "center",
         cursor: onClick ? "pointer" : "default",
         position: "relative",
+        padding: Math.round(size * 0.05),
       }}
     >
-      <Body
+      <Model
         data={data}
-        side={config.side}
-        gender="male"
-        scale={baseScale}
-        background="transparent"
-        border="#2a2f45"
-        highlightedColors={[highlightColor]}
+        type={config.type}
+        bodyColor="#2a2f45"
+        highlightedColors={[color]}
+        style={{ width: "100%", height: "100%" }}
+        svgStyle={{ width: "100%", height: "100%" }}
       />
       {/* Expand hint */}
       {onClick && (
@@ -127,18 +123,14 @@ export default function MuscleMap({
   showLabel = true,
 }: MuscleMapProps) {
   const [fullscreen, setFullscreen] = useState(false);
-  const config = MUSCLE_CONFIG[muscleGroup] ?? MUSCLE_CONFIG.Other;
   const labelColor = MUSCLE_LABEL_COLOR[muscleGroup] ?? MUSCLE_LABEL_COLOR.Other;
-  const highlightColor = labelColor;
   const fullSize = Math.min(window.innerWidth, window.innerHeight) * 0.78;
 
   return (
     <>
       <div className={cn("flex items-center gap-3", className)}>
         <BodyCard
-          config={config}
-          labelColor={labelColor}
-          highlightColor={highlightColor}
+          muscleGroup={muscleGroup}
           size={size}
           onClick={() => setFullscreen(true)}
         />
@@ -159,7 +151,7 @@ export default function MuscleMap({
           onClick={() => setFullscreen(false)}
           style={{
             position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(0,0,0,0.85)",
+            background: "rgba(0,0,0,0.88)",
             display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center",
             gap: 16,
@@ -182,9 +174,7 @@ export default function MuscleMap({
 
           {/* Large body card */}
           <BodyCard
-            config={config}
-            labelColor={labelColor}
-            highlightColor={highlightColor}
+            muscleGroup={muscleGroup}
             size={fullSize}
           />
 
