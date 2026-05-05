@@ -45,25 +45,32 @@ const MUSCLE_LABEL_COLOR: Record<string, string> = {
   Other: "#94a3b8",
 };
 
-// Map our muscle group names → react-muscle-highlighter slugs + which side to show
-const MUSCLE_CONFIG: Record<string, { slugs: string[]; side: "front" | "back" }> = {
-  Chest:      { slugs: ["chest"],                           side: "front" },
-  Shoulders:  { slugs: ["deltoids"],                        side: "front" },
-  Biceps:     { slugs: ["biceps"],                          side: "front" },
-  Abs:        { slugs: ["abs"],                             side: "front" },
-  Quadriceps: { slugs: ["quadriceps"],                      side: "front" },
-  Back:       { slugs: ["upper-back", "lower-back", "trapezius"], side: "back" },
-  Triceps:    { slugs: ["triceps"],                         side: "back" },
-  Hamstrings: { slugs: ["hamstring"],                       side: "back" },
-  Calves:     { slugs: ["calves"],                          side: "back" },
-  Glutes:     { slugs: ["gluteal"],                         side: "back" },
-  Other:      { slugs: [],                                  side: "front" },
+// Map our muscle group names → slugs, view side, zoom scale, and vertical pan (% of body height, negative = up)
+// translateY is expressed as a fraction of the rendered body height — negative moves the view UP (toward head)
+const MUSCLE_CONFIG: Record<string, {
+  slugs: string[];
+  side: "front" | "back";
+  zoom: number;    // CSS scale multiplier applied to the body
+  panY: number;    // vertical offset as fraction of container size (negative = shift up toward muscle)
+}> = {
+  //                                                          zoom   panY
+  Chest:      { slugs: ["chest"],                           side: "front", zoom: 2.2, panY: -0.28 },
+  Shoulders:  { slugs: ["deltoids"],                        side: "front", zoom: 2.2, panY: -0.30 },
+  Biceps:     { slugs: ["biceps"],                          side: "front", zoom: 2.0, panY: -0.20 },
+  Abs:        { slugs: ["abs"],                             side: "front", zoom: 2.0, panY: -0.10 },
+  Quadriceps: { slugs: ["quadriceps"],                      side: "front", zoom: 2.2, panY:  0.18 },
+  Back:       { slugs: ["upper-back", "lower-back", "trapezius"], side: "back",  zoom: 2.0, panY: -0.18 },
+  Triceps:    { slugs: ["triceps"],                         side: "back",  zoom: 2.0, panY: -0.18 },
+  Hamstrings: { slugs: ["hamstring"],                       side: "back",  zoom: 2.2, panY:  0.15 },
+  Calves:     { slugs: ["calves"],                          side: "back",  zoom: 2.4, panY:  0.36 },
+  Glutes:     { slugs: ["gluteal"],                         side: "back",  zoom: 2.2, panY:  0.10 },
+  Other:      { slugs: [],                                  side: "front", zoom: 1.0, panY:  0    },
 };
 
 function BodyCard({
   config, labelColor, highlightColor, size, onClick,
 }: {
-  config: { slugs: string[]; side: "front" | "back" };
+  config: { slugs: string[]; side: "front" | "back"; zoom: number; panY: number };
   labelColor: string;
   highlightColor: string;
   size: number;
@@ -74,6 +81,11 @@ function BodyCard({
     color: highlightColor,
     intensity: 2 as const,
   }));
+
+  // Render the body at a fixed base size, then zoom+pan via CSS transform
+  // Base scale keeps the full body fitting the container at zoom=1
+  const baseScale = size / 62;
+  const translateYpx = config.panY * size;
 
   return (
     <div
@@ -89,21 +101,29 @@ function BodyCard({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: 4,
         cursor: onClick ? "pointer" : "default",
         position: "relative",
       }}
     >
-      <Body
-        data={data}
-        side={config.side}
-        gender="male"
-        scale={size / 62}
-        background="transparent"
-        border="#2a2f45"
-        highlightedColors={[highlightColor]}
-      />
-      {/* Expand hint icon */}
+      {/* Inner wrapper applies zoom + pan without padding affecting layout */}
+      <div style={{
+        transform: `scale(${config.zoom}) translateY(${translateYpx / config.zoom}px)`,
+        transformOrigin: "center center",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        <Body
+          data={data}
+          side={config.side}
+          gender="male"
+          scale={baseScale}
+          background="transparent"
+          border="#2a2f45"
+          highlightedColors={[highlightColor]}
+        />
+      </div>
+      {/* Expand hint */}
       {onClick && (
         <div style={{
           position: "absolute", bottom: 4, right: 5,
