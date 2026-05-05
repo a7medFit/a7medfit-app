@@ -1,6 +1,6 @@
 /**
- * MuscleMap — high-quality animated muscle diagram matching reference app style.
- * Dark rounded card, zoomed upper-body torso, highlighted muscle glows white.
+ * MuscleMap — flat-vector anatomy style matching reference images.
+ * Dark card, zoomed torso, clean segment outlines, active muscle = bright white.
  */
 
 import { cn } from "@/lib/utils";
@@ -27,21 +27,6 @@ interface MuscleMapProps {
   showLabel?: boolean;
 }
 
-// Colors per muscle
-const MUSCLE_COLOR: Record<string, string> = {
-  Chest: "#ffffff",
-  Back: "#ffffff",
-  Shoulders: "#ffffff",
-  Biceps: "#ffffff",
-  Triceps: "#ffffff",
-  Abs: "#ffffff",
-  Quadriceps: "#ffffff",
-  Hamstrings: "#ffffff",
-  Calves: "#ffffff",
-  Glutes: "#ffffff",
-  Other: "#94a3b8",
-};
-
 const MUSCLE_LABEL_COLOR: Record<string, string> = {
   Chest: "#f97316",
   Back: "#3b82f6",
@@ -56,7 +41,6 @@ const MUSCLE_LABEL_COLOR: Record<string, string> = {
   Other: "#94a3b8",
 };
 
-// Whether to show front or back view
 const USE_BACK: Record<string, boolean> = {
   Back: true,
   Triceps: true,
@@ -65,380 +49,459 @@ const USE_BACK: Record<string, boolean> = {
   Glutes: true,
 };
 
-// ─── FRONT torso SVG ────────────────────────────────────────────────────────
-function FrontTorso({ highlight }: { highlight: string }) {
-  const h = (id: string) => id === highlight;
-  const muscFill = (id: string) => h(id) ? "#e8e8e8" : "#4a4f5a";
-  const muscOpacity = (id: string) => h(id) ? "1" : "0.85";
+// Colour palette matching the reference
+const C = {
+  bg:        "#1a1d2e",   // dark navy card background
+  body:      "#3a3f52",   // base torso fill
+  muscle:    "#4e5468",   // inactive muscle segment
+  muscleHi:  "#6a7088",   // inactive muscle lighter face
+  muscleSep: "#2a2e3e",   // separator / outline between segments
+  active:    "#dce4f0",   // active muscle bright fill
+  activeHi:  "#ffffff",   // active muscle highlight peak
+  shadow:    "#252838",   // deep shadow areas
+  skin:      "#3d4255",   // head / neck
+  skinHi:    "#4a5068",   // head lighter side
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FRONT VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+function FrontBody({ highlight }: { highlight: string }) {
+  const a = (id: string) => id === highlight;
+
+  const mFill  = (id: string) => a(id) ? C.active   : C.muscle;
+  const mFill2 = (id: string) => a(id) ? C.activeHi : C.muscleHi;
 
   return (
-    <svg viewBox="0 0 200 230" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+    <svg viewBox="18 0 164 230" xmlns="http://www.w3.org/2000/svg"
+      style={{ width: "100%", height: "100%", display: "block" }}>
       <defs>
-        {/* Glow filter for highlighted muscle */}
-        <filter id="glow-f" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        <filter id="gF" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
-        {/* Subtle shadow for depth */}
-        <filter id="shadow-f" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.5"/>
-        </filter>
-        {/* Body base gradient */}
-        <radialGradient id="bodyGrad-f" cx="50%" cy="40%" r="60%">
-          <stop offset="0%" stopColor="#5a6070"/>
-          <stop offset="100%" stopColor="#2e3240"/>
-        </radialGradient>
-        {/* Highlight gradient for active muscles */}
-        <radialGradient id="highlightGrad" cx="50%" cy="40%" r="60%">
-          <stop offset="0%" stopColor="#ffffff"/>
-          <stop offset="100%" stopColor="#c0c8d8"/>
-        </radialGradient>
       </defs>
 
+      {/* ── HEAD ── */}
+      <ellipse cx="100" cy="19" rx="16" ry="18" fill={C.skin}/>
+      <ellipse cx="94"  cy="16" rx="8"  ry="10" fill={C.skinHi} opacity="0.5"/>
+
       {/* ── NECK ── */}
-      <path d="M88 8 Q100 4 112 8 L115 38 Q100 42 85 38 Z" fill="#3d4252"/>
-      <path d="M90 10 Q100 6 110 10 L112 36 Q100 40 88 36 Z" fill="#454a5a"/>
+      <path d="M91 34 L109 34 L111 48 L89 48 Z" fill={C.skin}/>
+      <path d="M93 34 L100 34 L100 48 L91 48 Z" fill={C.skinHi} opacity="0.4"/>
 
-      {/* ── TRAPEZIUS (upper) ── */}
-      <path d="M85 38 Q100 42 115 38 L138 52 Q120 58 100 60 Q80 58 62 52 Z"
-        fill={h("Shoulders") ? "#c8d0e0" : "#3e4455"}
-        opacity={muscOpacity("Shoulders")}
-        filter={h("Shoulders") ? "url(#glow-f)" : undefined}
-      />
+      {/* ── TORSO BASE ── */}
+      <path d="M55 48 Q38 56 30 80 Q26 104 32 136 Q38 154 60 164
+               L80 170 L100 172 L120 170 L140 164
+               Q162 154 168 136 Q174 104 170 80 Q162 56 145 48 Z"
+        fill={C.body}/>
 
-      {/* ── CLAVICLE LINE ── */}
-      <line x1="68" y1="52" x2="100" y2="58" stroke="#262a36" strokeWidth="1.5" opacity="0.6"/>
-      <line x1="132" y1="52" x2="100" y2="58" stroke="#262a36" strokeWidth="1.5" opacity="0.6"/>
+      {/* ── TRAPEZIUS ── */}
+      <path d="M89 48 L111 48 L138 58 Q118 66 100 68 Q82 66 62 58 Z"
+        fill={a("Shoulders") || a("Back") ? C.active : C.muscle}
+        stroke={C.muscleSep} strokeWidth="1"/>
+      {/* trap highlight */}
+      <path d="M91 48 L109 48 L130 56 Q112 62 100 64 Q88 62 70 56 Z"
+        fill={a("Shoulders") || a("Back") ? C.activeHi : C.muscleHi} opacity="0.45"/>
 
-      {/* ── LEFT SHOULDER (delt front) ── */}
-      <path d="M62 52 Q44 54 34 70 Q30 82 36 94 Q44 88 52 80 L62 64 Z"
-        fill={muscFill("Shoulders")} opacity={muscOpacity("Shoulders")}
-        filter={h("Shoulders") ? "url(#glow-f)" : undefined}
-      />
-      <path d="M63 54 Q47 56 38 70 Q34 80 40 90 L52 80 L62 65 Z"
-        fill={h("Shoulders") ? "#ffffff" : "#555e72"} opacity="0.5"
-      />
+      {/* ── LEFT SHOULDER (front delt) ── */}
+      <path d="M62 58 Q42 60 32 76 Q28 92 36 106 Q46 100 54 88 L64 70 Z"
+        fill={mFill("Shoulders")} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Shoulders") ? "url(#gF)" : undefined}/>
+      <path d="M64 60 Q46 62 36 76 Q33 88 40 100 L54 88 L64 72 Z"
+        fill={mFill2("Shoulders")} opacity="0.45"/>
+      {a("Shoulders") && (
+        <path d="M62 58 Q42 60 32 76 Q28 92 36 106 Q46 100 54 88 L64 70 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.3;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
-      {/* ── RIGHT SHOULDER (delt front) ── */}
-      <path d="M138 52 Q156 54 166 70 Q170 82 164 94 Q156 88 148 80 L138 64 Z"
-        fill={muscFill("Shoulders")} opacity={muscOpacity("Shoulders")}
-        filter={h("Shoulders") ? "url(#glow-f)" : undefined}
-      />
-      <path d="M137 54 Q153 56 162 70 Q166 80 160 90 L148 80 L138 65 Z"
-        fill={h("Shoulders") ? "#ffffff" : "#555e72"} opacity="0.5"
-      />
+      {/* ── RIGHT SHOULDER (front delt) ── */}
+      <path d="M138 58 Q158 60 168 76 Q172 92 164 106 Q154 100 146 88 L136 70 Z"
+        fill={mFill("Shoulders")} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Shoulders") ? "url(#gF)" : undefined}/>
+      <path d="M136 60 Q154 62 164 76 Q167 88 160 100 L146 88 L136 72 Z"
+        fill={mFill2("Shoulders")} opacity="0.45"/>
+      {a("Shoulders") && (
+        <path d="M138 58 Q158 60 168 76 Q172 92 164 106 Q154 100 146 88 L136 70 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.3;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
       {/* ── LEFT BICEP ── */}
-      <path d="M36 96 Q28 108 28 124 Q28 136 36 142 Q44 136 48 124 Q50 112 46 98 Z"
-        fill={muscFill("Biceps")} opacity={muscOpacity("Biceps")}
-        filter={h("Biceps") ? "url(#glow-f)" : undefined}
-      />
-      <path d="M38 98 Q32 110 32 124 Q32 132 38 138 Q44 132 46 120 Q48 108 44 100 Z"
-        fill={h("Biceps") ? "#ffffff" : "#545e72"} opacity="0.45"
-      />
+      <path d="M32 108 Q24 120 24 136 Q24 150 34 156 Q44 150 48 136 Q50 120 42 108 Z"
+        fill={mFill("Biceps")} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Biceps") ? "url(#gF)" : undefined}/>
+      <path d="M34 110 Q28 122 28 136 Q28 146 36 150 Q42 144 46 132 Q48 118 40 110 Z"
+        fill={mFill2("Biceps")} opacity="0.4"/>
+      {a("Biceps") && (
+        <path d="M32 108 Q24 120 24 136 Q24 150 34 156 Q44 150 48 136 Q50 120 42 108 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.35;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
       {/* ── RIGHT BICEP ── */}
-      <path d="M164 96 Q172 108 172 124 Q172 136 164 142 Q156 136 152 124 Q150 112 154 98 Z"
-        fill={muscFill("Biceps")} opacity={muscOpacity("Biceps")}
-        filter={h("Biceps") ? "url(#glow-f)" : undefined}
-      />
-      <path d="M162 98 Q168 110 168 124 Q168 132 162 138 Q156 132 154 120 Q152 108 156 100 Z"
-        fill={h("Biceps") ? "#ffffff" : "#545e72"} opacity="0.45"
-      />
+      <path d="M168 108 Q176 120 176 136 Q176 150 166 156 Q156 150 152 136 Q150 120 158 108 Z"
+        fill={mFill("Biceps")} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Biceps") ? "url(#gF)" : undefined}/>
+      <path d="M166 110 Q172 122 172 136 Q172 146 164 150 Q158 144 154 132 Q152 118 160 110 Z"
+        fill={mFill2("Biceps")} opacity="0.4"/>
+      {a("Biceps") && (
+        <path d="M168 108 Q176 120 176 136 Q176 150 166 156 Q156 150 152 136 Q150 120 158 108 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.35;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
-      {/* ── LEFT TRICEP (visible from front side) ── */}
-      <path d="M46 98 Q38 108 36 118 Q42 122 50 116 Q54 106 52 96 Z"
-        fill={muscFill("Triceps")} opacity={h("Triceps") ? 0.9 : 0.55}
-        filter={h("Triceps") ? "url(#glow-f)" : undefined}
-      />
-      {/* ── RIGHT TRICEP ── */}
-      <path d="M154 98 Q162 108 164 118 Q158 122 150 116 Q146 106 148 96 Z"
-        fill={muscFill("Triceps")} opacity={h("Triceps") ? 0.9 : 0.55}
-        filter={h("Triceps") ? "url(#glow-f)" : undefined}
-      />
+      {/* ── LEFT TRICEP (side, front view) ── */}
+      <path d="M42 108 Q34 120 34 134 L44 132 Q50 118 48 106 Z"
+        fill={mFill("Triceps")} stroke={C.muscleSep} strokeWidth="1"
+        filter={a("Triceps") ? "url(#gF)" : undefined} opacity="0.9"/>
 
-      {/* ── CHEST LEFT PECTORAL ── */}
-      <path d="M66 60 Q52 66 46 82 Q44 96 54 104 Q66 108 76 100 Q84 90 84 74 Q82 62 70 60 Z"
-        fill={muscFill("Chest")} opacity={muscOpacity("Chest")}
-        filter={h("Chest") ? "url(#glow-f)" : undefined}
-      />
-      {/* Chest highlight sheen */}
-      <path d="M68 62 Q56 68 50 82 Q48 92 56 100 Q64 104 72 98 Q80 90 80 76 Q78 64 68 62 Z"
-        fill={h("Chest") ? "#ffffff" : "#606878"} opacity="0.35"
-      />
-      {/* Chest division line */}
-      <line x1="84" y1="60" x2="84" y2="106" stroke="#1e2230" strokeWidth="1.5" opacity="0.7"/>
+      {/* ── RIGHT TRICEP (side, front view) ── */}
+      <path d="M158 108 Q166 120 166 134 L156 132 Q150 118 152 106 Z"
+        fill={mFill("Triceps")} stroke={C.muscleSep} strokeWidth="1"
+        filter={a("Triceps") ? "url(#gF)" : undefined} opacity="0.9"/>
 
-      {/* ── CHEST RIGHT PECTORAL ── */}
-      <path d="M134 60 Q148 66 154 82 Q156 96 146 104 Q134 108 124 100 Q116 90 116 74 Q118 62 130 60 Z"
-        fill={muscFill("Chest")} opacity={muscOpacity("Chest")}
-        filter={h("Chest") ? "url(#glow-f)" : undefined}
-      />
-      <path d="M132 62 Q144 68 150 82 Q152 92 144 100 Q136 104 128 98 Q120 90 120 76 Q122 64 132 62 Z"
-        fill={h("Chest") ? "#ffffff" : "#606878"} opacity="0.35"
-      />
+      {/* ── LEFT PECTORAL ── */}
+      <path d="M64 68 Q48 74 42 90 Q40 106 52 114 Q66 118 78 110 Q88 100 86 82 Q84 68 70 66 Z"
+        fill={mFill("Chest")} stroke={C.muscleSep} strokeWidth="1.5"
+        filter={a("Chest") ? "url(#gF)" : undefined}/>
+      {/* pec highlight — upper-inner bright area */}
+      <path d="M72 68 Q58 74 54 88 Q52 100 60 108 Q70 110 76 104 Q84 96 82 82 Q80 70 72 68 Z"
+        fill={mFill2("Chest")} opacity="0.5"/>
+      {a("Chest") && (
+        <path d="M64 68 Q48 74 42 90 Q40 106 52 114 Q66 118 78 110 Q88 100 86 82 Q84 68 70 66 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.4;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
-      {/* ── STERNUM / CENTER LINE ── */}
-      <line x1="100" y1="58" x2="100" y2="110" stroke="#1e2230" strokeWidth="2" opacity="0.6"/>
+      {/* ── RIGHT PECTORAL ── */}
+      <path d="M136 68 Q152 74 158 90 Q160 106 148 114 Q134 118 122 110 Q112 100 114 82 Q116 68 130 66 Z"
+        fill={mFill("Chest")} stroke={C.muscleSep} strokeWidth="1.5"
+        filter={a("Chest") ? "url(#gF)" : undefined}/>
+      <path d="M128 68 Q142 74 146 88 Q148 100 140 108 Q130 110 124 104 Q116 96 118 82 Q120 70 128 68 Z"
+        fill={mFill2("Chest")} opacity="0.5"/>
+      {a("Chest") && (
+        <path d="M136 68 Q152 74 158 90 Q160 106 148 114 Q134 118 122 110 Q112 100 114 82 Q116 68 130 66 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.4;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
+
+      {/* Sternum / chest center divider */}
+      <line x1="100" y1="66" x2="100" y2="116" stroke={C.muscleSep} strokeWidth="2"/>
 
       {/* ── SERRATUS (side ribs) ── */}
       {[0,1,2].map(i => (
         <g key={i}>
-          <path d={`M 64 ${108 + i * 12} Q 54 ${112 + i * 12} 52 ${118 + i * 12}`}
-            stroke={h("Chest") || h("Abs") ? "#aaa" : "#404555"} strokeWidth="2.5" fill="none" opacity="0.7"/>
-          <path d={`M 136 ${108 + i * 12} Q 146 ${112 + i * 12} 148 ${118 + i * 12}`}
-            stroke={h("Chest") || h("Abs") ? "#aaa" : "#404555"} strokeWidth="2.5" fill="none" opacity="0.7"/>
+          <path d={`M 62 ${116 + i*14} Q 50 ${120 + i*14} 48 ${126 + i*14}`}
+            stroke={a("Chest") || a("Abs") ? "#9aa0b8" : "#3a3f52"} strokeWidth="3"
+            strokeLinecap="round" fill="none"/>
+          <path d={`M 138 ${116 + i*14} Q 150 ${120 + i*14} 152 ${126 + i*14}`}
+            stroke={a("Chest") || a("Abs") ? "#9aa0b8" : "#3a3f52"} strokeWidth="3"
+            strokeLinecap="round" fill="none"/>
         </g>
       ))}
 
-      {/* ── ABS (6-pack grid) ── */}
-      {/* Left column */}
-      {[0,1,2].map(i => (
-        <rect key={`al${i}`} x="80" y={108 + i * 22} width="18" height="17" rx="4"
-          fill={muscFill("Abs")} opacity={h("Abs") ? "0.95" : "0.75"}
-          filter={h("Abs") ? "url(#glow-f)" : undefined}
-        />
-      ))}
-      {/* Right column */}
-      {[0,1,2].map(i => (
-        <rect key={`ar${i}`} x="102" y={108 + i * 22} width="18" height="17" rx="4"
-          fill={muscFill("Abs")} opacity={h("Abs") ? "0.95" : "0.75"}
-          filter={h("Abs") ? "url(#glow-f)" : undefined}
-        />
-      ))}
-      {/* Abs highlight */}
-      {h("Abs") && [0,1,2].map(i => (
-        <g key={`ah${i}`}>
-          <rect x="80" y={108 + i * 22} width="18" height="17" rx="4" fill="white" opacity="0.25">
-            <animate attributeName="opacity" values="0.25;0.55;0.25" dur="1.6s" repeatCount="indefinite"/>
-          </rect>
-          <rect x="102" y={108 + i * 22} width="18" height="17" rx="4" fill="white" opacity="0.25">
-            <animate attributeName="opacity" values="0.25;0.55;0.25" dur="1.6s" repeatCount="indefinite"/>
-          </rect>
+      {/* ── ABS — 6 blocks ── */}
+      {[0,1,2].map(row => (
+        <g key={row}>
+          {/* left block */}
+          <rect x="80" y={116 + row*20} width="18" height="16" rx="4"
+            fill={mFill("Abs")} stroke={C.muscleSep} strokeWidth="1.2"
+            filter={a("Abs") ? "url(#gF)" : undefined}/>
+          <rect x="82" y={117 + row*20} width="10" height="7" rx="2"
+            fill={mFill2("Abs")} opacity="0.5"/>
+          {/* right block */}
+          <rect x="102" y={116 + row*20} width="18" height="16" rx="4"
+            fill={mFill("Abs")} stroke={C.muscleSep} strokeWidth="1.2"
+            filter={a("Abs") ? "url(#gF)" : undefined}/>
+          <rect x="104" y={117 + row*20} width="10" height="7" rx="2"
+            fill={mFill2("Abs")} opacity="0.5"/>
+          {a("Abs") && (
+            <>
+              <rect x="80" y={116 + row*20} width="18" height="16" rx="4"
+                fill={C.activeHi} opacity="0">
+                <animate attributeName="opacity" values="0;0.35;0" dur="1.8s" repeatCount="indefinite"/>
+              </rect>
+              <rect x="102" y={116 + row*20} width="18" height="16" rx="4"
+                fill={C.activeHi} opacity="0">
+                <animate attributeName="opacity" values="0;0.35;0" dur="1.8s" repeatCount="indefinite"/>
+              </rect>
+            </>
+          )}
         </g>
       ))}
+
+      {/* Linea alba (abs center) */}
+      <line x1="100" y1="116" x2="100" y2="176" stroke={C.muscleSep} strokeWidth="1.5"/>
 
       {/* ── OBLIQUES ── */}
-      <path d="M76 108 Q66 118 64 138 Q72 142 78 132 Q82 120 82 108 Z"
-        fill={h("Abs") ? "#c8ccd8" : "#424858"} opacity="0.8"/>
-      <path d="M124 108 Q134 118 136 138 Q128 142 122 132 Q118 120 118 108 Z"
-        fill={h("Abs") ? "#c8ccd8" : "#424858"} opacity="0.8"/>
+      <path d="M78 116 Q66 130 64 152 Q72 158 78 146 Q84 130 82 116 Z"
+        fill={a("Abs") ? C.active : C.shadow} stroke={C.muscleSep} strokeWidth="1" opacity="0.9"/>
+      <path d="M122 116 Q134 130 136 152 Q128 158 122 146 Q116 130 118 116 Z"
+        fill={a("Abs") ? C.active : C.shadow} stroke={C.muscleSep} strokeWidth="1" opacity="0.9"/>
 
-      {/* ── LOWER TORSO / HIP ── */}
-      <path d="M64 152 Q100 162 136 152 L140 168 Q100 178 60 168 Z"
-        fill="#363b4a" opacity="0.8"/>
+      {/* ── HIP / LOWER TORSO ── */}
+      <path d="M64 158 Q100 170 136 158 L138 172 Q100 182 62 172 Z" fill={C.shadow}/>
 
-      {/* ── BODY OUTLINE ── */}
-      <path d="M85 8 Q100 2 115 8 L138 52 Q160 54 170 70 Q178 90 168 110
-               L160 148 Q140 162 100 166 Q60 162 40 148 L32 110 Q22 90 30 70
-               Q40 54 62 52 Z"
-        fill="none" stroke="#1e2230" strokeWidth="2" opacity="0.5"
-      />
+      {/* ── FOREARMS (lower arm) ── */}
+      <path d="M24 156 Q20 168 22 178 Q28 180 34 176 Q36 166 34 156 Z"
+        fill={C.muscle} stroke={C.muscleSep} strokeWidth="1"/>
+      <path d="M176 156 Q180 168 178 178 Q172 180 166 176 Q164 166 166 156 Z"
+        fill={C.muscle} stroke={C.muscleSep} strokeWidth="1"/>
 
-      {/* ── PULSE ANIMATION on highlighted muscle ── */}
-      {highlight !== "Other" && (
-        <circle cx="100" cy="110" r="80" fill={MUSCLE_COLOR[highlight] || "#fff"} opacity="0">
-          <animate attributeName="opacity" values="0;0.04;0" dur="2s" repeatCount="indefinite"/>
-          <animate attributeName="r" values="60;90;60" dur="2s" repeatCount="indefinite"/>
-        </circle>
-      )}
+      {/* Outline */}
+      <path d="M89 34 L111 34 L145 48 Q166 56 172 80 Q178 106 170 138
+               Q164 158 140 166 L100 172 L60 166 Q36 158 30 138
+               Q22 106 28 80 Q34 56 55 48 Z"
+        fill="none" stroke={C.muscleSep} strokeWidth="1.5" opacity="0.6"/>
     </svg>
   );
 }
 
-// ─── BACK torso SVG ─────────────────────────────────────────────────────────
-function BackTorso({ highlight }: { highlight: string }) {
-  const h = (id: string) => id === highlight;
-  const muscFill = (id: string) => h(id) ? "#e8e8e8" : "#4a4f5a";
-  const muscOpacity = (id: string) => h(id) ? "1" : "0.85";
+// ─────────────────────────────────────────────────────────────────────────────
+// BACK VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+function BackBody({ highlight }: { highlight: string }) {
+  const a = (id: string) => id === highlight;
+  const mFill  = (id: string) => a(id) ? C.active   : C.muscle;
+  const mFill2 = (id: string) => a(id) ? C.activeHi : C.muscleHi;
 
   return (
-    <svg viewBox="0 0 200 230" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+    <svg viewBox="18 0 164 230" xmlns="http://www.w3.org/2000/svg"
+      style={{ width: "100%", height: "100%", display: "block" }}>
       <defs>
-        <filter id="glow-b" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="4" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        <filter id="gB" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
-        <radialGradient id="bodyGrad-b" cx="50%" cy="40%" r="60%">
-          <stop offset="0%" stopColor="#5a6070"/>
-          <stop offset="100%" stopColor="#2e3240"/>
-        </radialGradient>
       </defs>
 
+      {/* ── HEAD (back) ── */}
+      <ellipse cx="100" cy="19" rx="16" ry="18" fill={C.shadow}/>
+      <ellipse cx="106"  cy="16" rx="8" ry="10" fill={C.skin} opacity="0.45"/>
+
       {/* ── NECK ── */}
-      <path d="M88 8 Q100 4 112 8 L115 34 Q100 40 85 34 Z" fill="#3d4252"/>
-      <path d="M90 10 Q100 6 110 10 L112 32 Q100 38 88 32 Z" fill="#454a5a"/>
+      <path d="M91 34 L109 34 L111 48 L89 48 Z" fill={C.shadow}/>
+
+      {/* ── TORSO BASE ── */}
+      <path d="M55 48 Q38 56 30 80 Q26 104 32 136 Q38 154 60 164
+               L80 170 L100 172 L120 170 L140 164
+               Q162 154 168 136 Q174 104 170 80 Q162 56 145 48 Z"
+        fill={C.body}/>
 
       {/* ── TRAPEZIUS ── */}
-      <path d="M85 34 Q100 40 115 34 L140 54 Q120 62 100 64 Q80 62 60 54 Z"
-        fill={h("Back") || h("Shoulders") ? "#d0d8e8" : "#3e4455"}
-        opacity={h("Back") || h("Shoulders") ? "1" : "0.85"}
-        filter={h("Back") || h("Shoulders") ? "url(#glow-b)" : undefined}
-      />
-      {/* Trap centerline */}
-      <line x1="100" y1="40" x2="100" y2="64" stroke="#262a36" strokeWidth="1.5" opacity="0.5"/>
+      <path d="M89 48 L111 48 L140 58 Q118 66 100 68 Q82 66 60 58 Z"
+        fill={a("Back") || a("Shoulders") ? C.active : C.muscle}
+        stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Back") || a("Shoulders") ? "url(#gB)" : undefined}/>
+      <path d="M92 48 L108 48 L132 56 Q112 62 100 64 Q88 62 68 56 Z"
+        fill={a("Back") || a("Shoulders") ? C.activeHi : C.muscleHi} opacity="0.45"/>
+      {/* Trap diamond center */}
+      <path d="M100 50 L116 56 L100 64 L84 56 Z"
+        fill={a("Back") ? C.activeHi : C.muscleSep} opacity="0.5"/>
 
       {/* ── LEFT REAR DELT ── */}
-      <path d="M60 54 Q42 56 32 72 Q28 86 36 98 Q46 92 52 82 L62 66 Z"
-        fill={muscFill("Shoulders")} opacity={muscOpacity("Shoulders")}
-        filter={h("Shoulders") ? "url(#glow-b)" : undefined}
-      />
-      <path d="M62 56 Q46 58 38 72 Q34 84 40 94 L52 82 L62 68 Z"
-        fill={h("Shoulders") ? "#ffffff" : "#555e72"} opacity="0.4"
-      />
+      <path d="M60 58 Q40 60 30 76 Q26 92 36 106 Q48 100 54 88 L64 70 Z"
+        fill={mFill("Shoulders")} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Shoulders") ? "url(#gB)" : undefined}/>
+      <path d="M62 60 Q44 62 36 76 Q32 88 40 100 L54 88 L64 72 Z"
+        fill={mFill2("Shoulders")} opacity="0.45"/>
+      {a("Shoulders") && (
+        <path d="M60 58 Q40 60 30 76 Q26 92 36 106 Q48 100 54 88 L64 70 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.3;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
       {/* ── RIGHT REAR DELT ── */}
-      <path d="M140 54 Q158 56 168 72 Q172 86 164 98 Q154 92 148 82 L138 66 Z"
-        fill={muscFill("Shoulders")} opacity={muscOpacity("Shoulders")}
-        filter={h("Shoulders") ? "url(#glow-b)" : undefined}
-      />
-      <path d="M138 56 Q154 58 162 72 Q166 84 160 94 L148 82 L138 68 Z"
-        fill={h("Shoulders") ? "#ffffff" : "#555e72"} opacity="0.4"
-      />
+      <path d="M140 58 Q160 60 170 76 Q174 92 164 106 Q152 100 146 88 L136 70 Z"
+        fill={mFill("Shoulders")} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Shoulders") ? "url(#gB)" : undefined}/>
+      <path d="M138 60 Q156 62 164 76 Q168 88 160 100 L146 88 L136 72 Z"
+        fill={mFill2("Shoulders")} opacity="0.45"/>
+      {a("Shoulders") && (
+        <path d="M140 58 Q160 60 170 76 Q174 92 164 106 Q152 100 146 88 L136 70 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.3;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
       {/* ── LEFT LAT ── */}
-      <path d="M62 66 Q44 78 38 102 Q36 120 44 134 Q56 138 64 128 Q70 114 70 96 L68 74 Z"
-        fill={muscFill("Back")} opacity={muscOpacity("Back")}
-        filter={h("Back") ? "url(#glow-b)" : undefined}
-      />
-      <path d="M64 68 Q48 80 42 102 Q40 118 46 130 Q54 132 62 124 Q68 110 68 94 L66 76 Z"
-        fill={h("Back") ? "#ffffff" : "#606878"} opacity="0.35"
-      />
+      <path d="M62 70 Q42 80 36 106 Q34 124 44 138 Q56 142 64 132 Q70 116 70 96 L68 76 Z"
+        fill={mFill("Back")} stroke={C.muscleSep} strokeWidth="1.5"
+        filter={a("Back") ? "url(#gB)" : undefined}/>
+      <path d="M64 72 Q46 82 40 106 Q38 120 46 132 Q54 134 62 126 Q68 112 68 94 L66 78 Z"
+        fill={mFill2("Back")} opacity="0.4"/>
+      {a("Back") && (
+        <path d="M62 70 Q42 80 36 106 Q34 124 44 138 Q56 142 64 132 Q70 116 70 96 L68 76 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.35;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
       {/* ── RIGHT LAT ── */}
-      <path d="M138 66 Q156 78 162 102 Q164 120 156 134 Q144 138 136 128 Q130 114 130 96 L132 74 Z"
-        fill={muscFill("Back")} opacity={muscOpacity("Back")}
-        filter={h("Back") ? "url(#glow-b)" : undefined}
-      />
-      <path d="M136 68 Q152 80 158 102 Q160 118 154 130 Q146 132 138 124 Q132 110 132 94 L134 76 Z"
-        fill={h("Back") ? "#ffffff" : "#606878"} opacity="0.35"
-      />
+      <path d="M138 70 Q158 80 164 106 Q166 124 156 138 Q144 142 136 132 Q130 116 130 96 L132 76 Z"
+        fill={mFill("Back")} stroke={C.muscleSep} strokeWidth="1.5"
+        filter={a("Back") ? "url(#gB)" : undefined}/>
+      <path d="M136 72 Q154 82 160 106 Q162 120 154 132 Q146 134 138 126 Q132 112 132 94 L134 78 Z"
+        fill={mFill2("Back")} opacity="0.4"/>
+      {a("Back") && (
+        <path d="M138 70 Q158 80 164 106 Q166 124 156 138 Q144 142 136 132 Q130 116 130 96 L132 76 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.35;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
       {/* ── RHOMBOIDS / MID BACK ── */}
-      <path d="M70 66 Q100 72 130 66 L130 100 Q100 108 70 100 Z"
-        fill={h("Back") ? "#d8dce8" : "#404555"}
-        opacity={h("Back") ? "1" : "0.8"}
-        filter={h("Back") ? "url(#glow-b)" : undefined}
-      />
-      {/* Spine line */}
-      <line x1="100" y1="64" x2="100" y2="152" stroke="#1e2230" strokeWidth="2.5" opacity="0.6"/>
+      <path d="M70 68 L130 68 L132 104 Q100 112 68 104 Z"
+        fill={a("Back") ? C.active : C.shadow} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Back") ? "url(#gB)" : undefined} opacity="0.9"/>
+      <path d="M74 70 L126 70 L128 100 Q100 108 72 100 Z"
+        fill={a("Back") ? C.activeHi : C.muscle} opacity="0.4"/>
 
-      {/* ── LOWER BACK / ERECTORS ── */}
-      <path d="M84 100 Q100 106 116 100 L118 140 Q100 148 82 140 Z"
-        fill={h("Back") ? "#c8ccd8" : "#3d4255"}
-        opacity={h("Back") ? "0.95" : "0.75"}
-        filter={h("Back") ? "url(#glow-b)" : undefined}
-      />
-      {/* Erector highlight strips */}
-      <rect x="87" y="102" width="6" height="36" rx="3"
-        fill={h("Back") ? "#ffffff" : "#525a6a"} opacity={h("Back") ? "0.5" : "0.4"}/>
-      <rect x="107" y="102" width="6" height="36" rx="3"
-        fill={h("Back") ? "#ffffff" : "#525a6a"} opacity={h("Back") ? "0.5" : "0.4"}/>
+      {/* ── SPINE LINE ── */}
+      <line x1="100" y1="64" x2="100" y2="160" stroke={C.muscleSep} strokeWidth="2.5"/>
+      {/* Vertebrae dots */}
+      {[78, 92, 106, 120, 134, 148].map(y => (
+        <circle key={y} cx="100" cy={y} r="2.5" fill={C.muscleSep}/>
+      ))}
+
+      {/* ── ERECTOR SPINAE strips ── */}
+      <rect x="88" y="106" width="8" height="44" rx="4"
+        fill={a("Back") ? C.active : C.muscle} stroke={C.muscleSep} strokeWidth="1"
+        filter={a("Back") ? "url(#gB)" : undefined}/>
+      <rect x="90" y="108" width="4" height="20" rx="2"
+        fill={a("Back") ? C.activeHi : C.muscleHi} opacity="0.5"/>
+      <rect x="104" y="106" width="8" height="44" rx="4"
+        fill={a("Back") ? C.active : C.muscle} stroke={C.muscleSep} strokeWidth="1"
+        filter={a("Back") ? "url(#gB)" : undefined}/>
+      <rect x="106" y="108" width="4" height="20" rx="2"
+        fill={a("Back") ? C.activeHi : C.muscleHi} opacity="0.5"/>
 
       {/* ── LEFT TRICEP (back view) ── */}
-      <path d="M36 98 Q28 110 28 126 Q30 138 40 142 Q48 136 50 122 Q52 108 46 98 Z"
-        fill={muscFill("Triceps")} opacity={muscOpacity("Triceps")}
-        filter={h("Triceps") ? "url(#glow-b)" : undefined}
-      />
-      <path d="M38 100 Q32 112 32 126 Q34 134 40 138 Q46 132 48 120 Q50 106 44 100 Z"
-        fill={h("Triceps") ? "#ffffff" : "#545e72"} opacity="0.4"
-      />
+      <path d="M32 108 Q24 122 24 138 Q24 152 36 156 Q46 150 50 136 Q52 120 44 108 Z"
+        fill={mFill("Triceps")} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Triceps") ? "url(#gB)" : undefined}/>
+      <path d="M34 110 Q28 124 28 138 Q28 148 36 152 Q44 146 48 132 Q50 116 42 110 Z"
+        fill={mFill2("Triceps")} opacity="0.4"/>
+      {a("Triceps") && (
+        <path d="M32 108 Q24 122 24 138 Q24 152 36 156 Q46 150 50 136 Q52 120 44 108 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.35;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
       {/* ── RIGHT TRICEP (back view) ── */}
-      <path d="M164 98 Q172 110 172 126 Q170 138 160 142 Q152 136 150 122 Q148 108 154 98 Z"
-        fill={muscFill("Triceps")} opacity={muscOpacity("Triceps")}
-        filter={h("Triceps") ? "url(#glow-b)" : undefined}
-      />
-      <path d="M162 100 Q168 112 168 126 Q166 134 160 138 Q154 132 152 120 Q150 106 156 100 Z"
-        fill={h("Triceps") ? "#ffffff" : "#545e72"} opacity="0.4"
-      />
+      <path d="M168 108 Q176 122 176 138 Q176 152 164 156 Q154 150 150 136 Q148 120 156 108 Z"
+        fill={mFill("Triceps")} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Triceps") ? "url(#gB)" : undefined}/>
+      <path d="M166 110 Q172 124 172 138 Q172 148 164 152 Q156 146 152 132 Q150 116 158 110 Z"
+        fill={mFill2("Triceps")} opacity="0.4"/>
+      {a("Triceps") && (
+        <path d="M168 108 Q176 122 176 138 Q176 152 164 156 Q154 150 150 136 Q148 120 156 108 Z"
+          fill={C.activeHi} opacity="0">
+          <animate attributeName="opacity" values="0;0.35;0" dur="1.8s" repeatCount="indefinite"/>
+        </path>
+      )}
 
       {/* ── GLUTES ── */}
-      <path d="M62 140 Q100 152 138 140 L142 160 Q120 170 100 172 Q80 170 58 160 Z"
-        fill={h("Glutes") ? "#d8dce8" : "#3e4455"}
-        opacity={h("Glutes") ? "1" : "0.8"}
-        filter={h("Glutes") ? "url(#glow-b)" : undefined}
-      />
-      {/* Glute crease */}
-      <line x1="100" y1="140" x2="100" y2="172" stroke="#1e2230" strokeWidth="1.5" opacity="0.5"/>
+      <path d="M60 150 Q100 162 140 150 L142 170 Q120 180 100 182 Q80 180 58 170 Z"
+        fill={a("Glutes") ? C.active : C.muscle} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Glutes") ? "url(#gB)" : undefined}/>
+      <path d="M62 152 Q100 162 138 152 L139 166 Q118 174 100 176 Q82 174 61 166 Z"
+        fill={a("Glutes") ? C.activeHi : C.muscleHi} opacity="0.4"/>
 
       {/* ── HAMSTRINGS ── */}
-      <path d="M60 160 Q56 172 58 190 Q62 208 74 212 Q84 210 86 196 Q90 178 88 162 Q74 158 60 160 Z"
-        fill={h("Hamstrings") ? "#d0d8e8" : "#404555"}
-        opacity={h("Hamstrings") ? "1" : "0.8"}
-        filter={h("Hamstrings") ? "url(#glow-b)" : undefined}
-      />
-      <path d="M112 162 Q110 178 114 196 Q116 210 126 212 Q138 208 142 190 Q144 172 140 160 Q126 158 112 162 Z"
-        fill={h("Hamstrings") ? "#d0d8e8" : "#404555"}
-        opacity={h("Hamstrings") ? "1" : "0.8"}
-        filter={h("Hamstrings") ? "url(#glow-b)" : undefined}
-      />
+      <path d="M60 168 Q56 184 58 202 Q62 216 76 218 Q86 214 88 200 Q90 182 86 168 Q72 164 60 168 Z"
+        fill={a("Hamstrings") ? C.active : C.muscle} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Hamstrings") ? "url(#gB)" : undefined}/>
+      <path d="M114 168 Q110 182 114 200 Q116 214 128 218 Q140 214 144 200 Q146 184 142 168 Q128 164 114 168 Z"
+        fill={a("Hamstrings") ? C.active : C.muscle} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Hamstrings") ? "url(#gB)" : undefined}/>
+      {/* Hamstring inner highlight */}
+      <path d="M64 170 Q60 184 62 200 Q66 210 74 212 Q82 208 84 196 Q86 180 82 170 Z"
+        fill={a("Hamstrings") ? C.activeHi : C.muscleHi} opacity="0.4"/>
+      <path d="M118 170 Q116 184 118 200 Q122 210 128 212 Q136 208 138 196 Q140 180 136 170 Z"
+        fill={a("Hamstrings") ? C.activeHi : C.muscleHi} opacity="0.4"/>
 
       {/* ── CALVES ── */}
-      <path d="M62 212 Q58 220 62 228 Q72 230 78 224 Q80 214 76 212 Z"
-        fill={h("Calves") ? "#d0d8e8" : "#3e4455"}
-        opacity={h("Calves") ? "1" : "0.8"}
-        filter={h("Calves") ? "url(#glow-b)" : undefined}
-      />
-      <path d="M124 212 Q122 220 124 228 Q132 230 140 224 Q142 214 138 212 Z"
-        fill={h("Calves") ? "#d0d8e8" : "#3e4455"}
-        opacity={h("Calves") ? "1" : "0.8"}
-        filter={h("Calves") ? "url(#glow-b)" : undefined}
-      />
+      <path d="M60 220 Q56 226 60 232 Q70 236 78 228 Q80 220 76 218 Z"
+        fill={a("Calves") ? C.active : C.muscle} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Calves") ? "url(#gB)" : undefined}/>
+      <path d="M122 220 Q120 226 122 232 Q130 236 140 228 Q142 220 138 218 Z"
+        fill={a("Calves") ? C.active : C.muscle} stroke={C.muscleSep} strokeWidth="1.2"
+        filter={a("Calves") ? "url(#gB)" : undefined}/>
 
-      {/* ── BODY OUTLINE ── */}
-      <path d="M85 8 Q100 2 115 8 L140 54 Q164 56 172 72 Q180 94 168 116
-               L158 150 Q138 164 100 174 Q62 164 42 150 L32 116 Q20 94 28 72
-               Q36 56 60 54 Z"
-        fill="none" stroke="#1e2230" strokeWidth="2" opacity="0.4"
-      />
+      {/* ── FOREARMS ── */}
+      <path d="M24 156 Q20 168 22 178 Q28 180 34 176 Q36 166 34 156 Z"
+        fill={C.muscle} stroke={C.muscleSep} strokeWidth="1"/>
+      <path d="M176 156 Q180 168 178 178 Q172 180 166 176 Q164 166 166 156 Z"
+        fill={C.muscle} stroke={C.muscleSep} strokeWidth="1"/>
 
-      {/* Pulse */}
-      {highlight !== "Other" && (
-        <circle cx="100" cy="110" r="80" fill={MUSCLE_COLOR[highlight] || "#fff"} opacity="0">
-          <animate attributeName="opacity" values="0;0.04;0" dur="2s" repeatCount="indefinite"/>
-          <animate attributeName="r" values="60;90;60" dur="2s" repeatCount="indefinite"/>
-        </circle>
-      )}
+      {/* Outline */}
+      <path d="M89 34 L111 34 L145 48 Q166 56 172 80 Q178 106 170 138
+               Q164 158 140 166 L100 172 L60 166 Q36 158 30 138
+               Q22 106 28 80 Q34 56 55 48 Z"
+        fill="none" stroke={C.muscleSep} strokeWidth="1.5" opacity="0.6"/>
     </svg>
   );
 }
 
-// ─── Main export ─────────────────────────────────────────────────────────────
-export default function MuscleMap({ muscleGroup, className, size = 90, showLabel = true }: MuscleMapProps) {
-  const useBack = USE_BACK[muscleGroup] ?? false;
-  const labelColor = MUSCLE_LABEL_COLOR[muscleGroup] ?? MUSCLE_LABEL_COLOR.Other;
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORTED COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+export default function MuscleMap({
+  muscleGroup,
+  className,
+  size = 100,
+  showLabel = true,
+}: MuscleMapProps) {
+  const useBack  = USE_BACK[muscleGroup] ?? false;
+  const labelClr = MUSCLE_LABEL_COLOR[muscleGroup] ?? MUSCLE_LABEL_COLOR.Other;
+
+  // Card is square; body SVG is rendered slightly larger + clipped so it fills the card
+  const cardSize = size;
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      {/* Dark rounded card container — matches reference */}
       <div
         style={{
-          width: size,
-          height: size,
-          borderRadius: size * 0.22,
-          background: "linear-gradient(145deg, #1e2132 0%, #161824 100%)",
+          width:  cardSize,
+          height: cardSize,
+          borderRadius: Math.round(cardSize * 0.2),
+          background: C.bg,
           overflow: "hidden",
           flexShrink: 0,
-          boxShadow: "0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
-          // Clip so the body fills the card tightly (zoom in)
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "center",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)",
+          position: "relative",
         }}
       >
-        <div style={{ width: size * 1.1, height: size * 1.35, marginTop: -(size * 0.05) }}>
+        {/* Render body scaled up so torso fills card (crop legs) */}
+        <div style={{
+          position: "absolute",
+          top: -(cardSize * 0.04),
+          left: -(cardSize * 0.04),
+          width:  cardSize * 1.08,
+          height: cardSize * 1.75,
+        }}>
           {useBack
-            ? <BackTorso highlight={muscleGroup} />
-            : <FrontTorso highlight={muscleGroup} />
+            ? <BackBody  highlight={muscleGroup} />
+            : <FrontBody highlight={muscleGroup} />
           }
         </div>
       </div>
 
       {showLabel && (
         <span
-          className="text-xs font-semibold px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: labelColor + "22", color: labelColor, flexShrink: 0 }}
+          className="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+          style={{ background: labelClr + "22", color: labelClr, flexShrink: 0 }}
         >
           {muscleGroup}
         </span>
