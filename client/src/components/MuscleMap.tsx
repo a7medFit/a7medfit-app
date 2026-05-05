@@ -74,7 +74,7 @@ function BodyCard({
         width: size,
         height: size,
         borderRadius: Math.round(size * 0.18),
-        background: "linear-gradient(145deg, #1e2132 0%, #161824 100%)",
+        background: "#ffffff",
         overflow: "hidden",
         flexShrink: 0,
         boxShadow: "0 4px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)",
