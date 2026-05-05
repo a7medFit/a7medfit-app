@@ -13,6 +13,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube, BookOpen, Search, GripVertical } from "lucide-react";
 import { format } from "date-fns";
+import { inferMuscleGroup } from "@/components/MuscleMap";
+
+// Tiny muscle badge shown on each exercise row
+const MUSCLE_COLORS: Record<string, string> = {
+  Chest: "#f97316", Back: "#3b82f6", Shoulders: "#a855f7", Biceps: "#ec4899",
+  Triceps: "#14b8a6", Abs: "#f59e0b", Quadriceps: "#22c55e", Hamstrings: "#84cc16",
+  Calves: "#06b6d4", Glutes: "#f43f5e", Other: "#94a3b8",
+};
+function MuscleMapBadge({ title }: { title: string }) {
+  const mg = inferMuscleGroup(title);
+  const color = MUSCLE_COLORS[mg] ?? MUSCLE_COLORS.Other;
+  return (
+    <span
+      className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full hidden sm:inline-flex items-center"
+      style={{ backgroundColor: color + "22", color }}
+    >{mg}</span>
+  );
+}
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -830,13 +848,16 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
                           ) : (
                             <div className="shrink-0 w-7 h-7" />
                           )}
-                          <div className="min-w-0">
-                            <span className="text-sm font-medium">{ex.title}</span>
-                            {(ex.sets || ex.reps) && (
-                              <span className="text-xs text-muted-foreground ml-2">
-                                {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`].filter(Boolean).join(" · ")}
-                              </span>
-                            )}
+                          <div className="min-w-0 flex items-center gap-2 flex-1">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium">{ex.title}</span>
+                              {(ex.sets || ex.reps) && (
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`].filter(Boolean).join(" · ")}
+                                </span>
+                              )}
+                            </div>
+                            <MuscleMapBadge title={ex.title} />
                           </div>
                         </div>
 

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Dumbbell, Trash2, Upload, Play, Edit3, Youtube, Search, X } from "lucide-react";
+import MuscleMap from "@/components/MuscleMap";
 
 const MUSCLE_GROUPS = [
   "Chest", "Back", "Shoulders", "Biceps", "Triceps",
@@ -341,6 +342,9 @@ export default function CoachLibrary() {
                             {[ex.defaultSets && `${ex.defaultSets} sets`, ex.defaultReps && `${ex.defaultReps} reps`].filter(Boolean).join(" · ")}
                           </p>
                         )}
+                        <div className="mt-2">
+                          <MuscleMap muscleGroup={ex.muscleGroup || "Other"} size={32} className="justify-start" />
+                        </div>
                         {ex.description && (
                           <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">{ex.description}</p>
                         )}

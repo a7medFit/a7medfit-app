@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell, Pencil, Timer, Flame, Bike } from "lucide-react";
 import { cn } from "@/lib/utils";
+import MuscleMap, { inferMuscleGroup } from "@/components/MuscleMap";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -387,6 +388,14 @@ export default function ClientSchedule() {
           <DialogHeader>
             <DialogTitle>{editingCompletionId !== null ? "Edit Entry" : "Log"}: {logExercise?.title}</DialogTitle>
           </DialogHeader>
+          {logExercise && (() => {
+            const mg = inferMuscleGroup(logExercise.title);
+            return (
+              <div className="flex items-center gap-3 px-1 pb-1">
+                <MuscleMap muscleGroup={mg} size={38} />
+              </div>
+            );
+          })()}
           <div className="space-y-4 pt-2">
 
             {/* Sets table */}
