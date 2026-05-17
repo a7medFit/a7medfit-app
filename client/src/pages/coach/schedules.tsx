@@ -801,21 +801,19 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
               <p className="text-xs text-muted-foreground mt-0.5">Week of {schedule.weekStart} · {exercises.length} exercises</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleStatusMut.mutate({ id: schedule.id, status: schedule.status === "active" ? "inactive" : "active" });
-              }}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors ${
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <select
+              value={schedule.status}
+              onChange={(e) => toggleStatusMut.mutate({ id: schedule.id, status: e.target.value })}
+              className={`text-[11px] font-semibold px-2 py-1 rounded-full border cursor-pointer outline-none transition-colors ${
                 schedule.status === "active"
-                  ? "bg-green-500/15 text-green-600 border-green-500/30 hover:bg-red-500/15 hover:text-red-500 hover:border-red-400/30"
-                  : "bg-muted text-muted-foreground border-border hover:bg-green-500/15 hover:text-green-600 hover:border-green-500/30"
+                  ? "bg-green-500/15 text-green-600 border-green-500/30"
+                  : "bg-muted text-muted-foreground border-border"
               }`}
-              title={schedule.status === "active" ? "Click to deactivate" : "Click to activate"}
             >
-              {schedule.status === "active" ? "● Active" : "○ Inactive"}
-            </button>
+              <option value="active">● Active</option>
+              <option value="inactive">○ Inactive</option>
+            </select>
             {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </div>
         </div>
