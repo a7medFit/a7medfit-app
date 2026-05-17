@@ -312,11 +312,29 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   app.patch("/api/schedules/:id", requireCoach, async (req, res) => {
     try {
-      const updated = await storage.updateSchedule(Number(req.params.id), req.body);
-      if (!updated) return res.status(404).json({ error: "Not found" });
-      res.json(updated);
-    } catch (err) {
-      res.status(500).json({ error: "Failed to update schedule" });
+      const id = Number(req.params.id);
+      // Build update object with only the fields that were sent
+      const allowed = ["title", "description", "weekStart", "status"];
+      const data: any = {};
+      for (const key of allowed) {
+        if (req.body[key] !== undefined) data[key] = req.body[key];
+      }
+      if (Object.keys(data).length === 0) return res.status(400).json({ error: "Nothing to update" });
+      // Use raw SQL to avoid Drizzle type coercion issues
+      const { pool } = await import("./storage");
+      const keys = Object.keys(data);
+      // Convert camelCase to snake_case for SQL
+      const toSnake = (s: string) => s.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
+      const setClause = keys.map((k, i) => `${toSnake(k)} = $${i + 1}`).join(", ");
+      const values = [...keys.map((k) => data[k]), id];
+      const result = await pool.query(
+        `UPDATE schedules SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
+        values
+      );
+      if (result.rows.length === 0) return res.status(404).json({ error: "Not found" });
+      res.json(result.rows[0]);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to update schedule" });
     }
   });
 
