@@ -19,10 +19,12 @@ import { inferMuscleGroup } from "@/components/MuscleMap";
 const MUSCLE_COLORS: Record<string, string> = {
   Chest: "#f97316", Back: "#3b82f6", Shoulders: "#a855f7", Biceps: "#ec4899",
   Triceps: "#14b8a6", Abs: "#f59e0b", Quadriceps: "#22c55e", Hamstrings: "#84cc16",
-  Calves: "#06b6d4", Glutes: "#f43f5e", Other: "#94a3b8",
+  Calves: "#06b6d4", Glutes: "#f43f5e", Forearms: "#f59e0b", Legs: "#22c55e",
+  Core: "#f59e0b", "Full Body": "#94a3b8", Other: "#94a3b8",
 };
 function MuscleMapBadge({ title }: { title: string }) {
-  const mg = inferMuscleGroup(title);
+  // If title is a known muscle group name, use it directly; otherwise infer from title text
+  const mg = MUSCLE_COLORS[title] ? title : inferMuscleGroup(title);
   const color = MUSCLE_COLORS[mg] ?? MUSCLE_COLORS.Other;
   return (
     <span
@@ -33,6 +35,7 @@ function MuscleMapBadge({ title }: { title: string }) {
 }
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Abs", "Quadriceps", "Hamstrings", "Calves", "Glutes", "Forearms", "Legs", "Core", "Full Body", "Other"];
 
 function extractYoutubeId(url: string): string {
   const match = url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
@@ -55,7 +58,7 @@ export default function CoachSchedules() {
   const [scheduleForm, setScheduleForm] = useState({ title: "", description: "", weekStart: format(new Date(), "yyyy-MM-dd"), status: "active" });
 
   // Exercise form state
-  const [exerciseForm, setExerciseForm] = useState({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "" });
+  const [exerciseForm, setExerciseForm] = useState({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "", muscleGroup: "" });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [videoMode, setVideoMode] = useState<"upload" | "youtube">("youtube");
@@ -140,7 +143,7 @@ export default function CoachSchedules() {
     onSuccess: (_data, scheduleId) => {
       queryClient.invalidateQueries({ queryKey: [`/api/schedules/${scheduleId}/exercises`] });
       setNewExerciseScheduleId(null);
-      setExerciseForm({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "" });
+      setExerciseForm({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "", muscleGroup: "" });
       setVideoFile(null);
       setYoutubeUrl("");
       toast({ title: "Exercise added" });
@@ -160,7 +163,7 @@ export default function CoachSchedules() {
     },
   });
 
-  const [editExForm, setEditExForm] = useState({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "" });
+  const [editExForm, setEditExForm] = useState({ title: "", description: "", dayOfWeek: "0", sets: "", reps: "", durationSeconds: "", notes: "", muscleGroup: "" });
   const [editVideoFile, setEditVideoFile] = useState<File | null>(null);
   const [editYoutubeUrl, setEditYoutubeUrl] = useState("");
   const [editVideoMode, setEditVideoMode] = useState<"upload" | "youtube" | "keep">("keep");
@@ -176,6 +179,7 @@ export default function CoachSchedules() {
       reps: ex.reps ? String(ex.reps) : "",
       durationSeconds: ex.durationSeconds ? String(ex.durationSeconds) : "",
       notes: ex.notes || "",
+      muscleGroup: ex.muscleGroup || "",
     });
     setEditYoutubeUrl(ex.videoUrl && (ex.videoUrl.includes("youtube") || ex.videoUrl.includes("youtu.be")) ? ex.videoUrl : "");
     setEditVideoMode("keep");
@@ -350,6 +354,13 @@ export default function CoachSchedules() {
                 <Select value={editExForm.dayOfWeek} onValueChange={(v) => setEditExForm({ ...editExForm, dayOfWeek: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Muscle Group</Label>
+                <Select value={editExForm.muscleGroup || ""} onValueChange={(v) => setEditExForm({ ...editExForm, muscleGroup: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select muscle group" /></SelectTrigger>
+                  <SelectContent>{MUSCLE_GROUPS.map((mg) => <SelectItem key={mg} value={mg}>{mg}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-3 gap-3">
@@ -614,6 +625,13 @@ function AddExerciseDialog({ scheduleId, exerciseForm, setExerciseForm, videoMod
             <Select value={exerciseForm.dayOfWeek} onValueChange={(v) => setExerciseForm({ ...exerciseForm, dayOfWeek: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Muscle Group</Label>
+            <Select value={exerciseForm.muscleGroup || ""} onValueChange={(v) => setExerciseForm({ ...exerciseForm, muscleGroup: v })}>
+              <SelectTrigger><SelectValue placeholder="Select muscle group" /></SelectTrigger>
+              <SelectContent>{MUSCLE_GROUPS.map((mg) => <SelectItem key={mg} value={mg}>{mg}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -971,7 +989,7 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
                                 </span>
                               )}
                             </div>
-                            <MuscleMapBadge title={ex.title} />
+                            <MuscleMapBadge title={ex.muscleGroup || ex.title} />
                             {ex.supersetGroup && (
                               <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-500 hidden sm:inline-flex items-center gap-0.5">
                                 <Link2 className="w-2.5 h-2.5" /> SS
