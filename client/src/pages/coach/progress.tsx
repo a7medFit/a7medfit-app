@@ -138,21 +138,27 @@ function ClientProgressCard({ p, expanded, onToggle }: { p: any; expanded: boole
                 {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </div>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {/* Exercise progress bar (orange) */}
-              <div className="flex items-center gap-2">
-                <Progress value={pct} className="h-2 flex-1" />
-                <span className="text-xs font-medium w-8 text-right">{pct}%</span>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">Exercises</span>
+                  <span className="text-[11px] font-medium">{doneEx}/{totalEx} · {pct}%</span>
+                </div>
+                <Progress value={pct} className="h-2" />
               </div>
               {/* Cardio progress bar (blue) */}
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">Cardio</span>
+                  <span className="text-[11px] font-medium text-blue-500">{cardioMinutes}m · {cardioPct}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                   <div
                     className="h-2 rounded-full transition-all"
                     style={{ width: `${cardioPct}%`, background: cardioPct >= 100 ? "#22c55e" : "#3b82f6" }}
                   />
                 </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{cardioMinutes}m · {cardioPct}%</span>
               </div>
             </div>
           </div>
