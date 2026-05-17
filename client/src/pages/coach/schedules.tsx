@@ -91,10 +91,25 @@ export default function CoachSchedules() {
   const toggleStatusMut = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const res = await apiRequest("PATCH", `/api/schedules/${id}`, { status });
+      if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/schedules"] }),
-    onError: () => toast({ title: "Error", description: "Failed to update schedule status", variant: "destructive" }),
+    onMutate: async ({ id, status }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["/api/schedules"] });
+      const previous = queryClient.getQueryData(["/api/schedules"]);
+      // Optimistically update the cache
+      queryClient.setQueryData(["/api/schedules"], (old: any[]) =>
+        (old || []).map((s: any) => s.id === id ? { ...s, status } : s)
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context: any) => {
+      // Roll back on error
+      if (context?.previous) queryClient.setQueryData(["/api/schedules"], context.previous);
+      toast({ title: "Error", description: "Failed to update schedule status", variant: "destructive" });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["/api/schedules"] }),
   });
 
   const deleteScheduleMut = useMutation({
