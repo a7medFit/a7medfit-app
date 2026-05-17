@@ -550,6 +550,31 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // Save a schedule exercise to the library (skip if title already exists)
+  app.post("/api/exercises/:id/save-to-library", requireCoach, async (req, res) => {
+    try {
+      const ex = await storage.getExerciseById(Number(req.params.id));
+      if (!ex) return res.status(404).json({ error: "Exercise not found" });
+      // Check for existing library entry with same title (case-insensitive)
+      const existing = await storage.getLibraryExercises();
+      const dup = existing.find((e) => e.title.toLowerCase() === ex.title.toLowerCase());
+      if (dup) return res.json({ ...dup, alreadyExists: true });
+      const { inferMuscleGroup } = await import("./muscleUtils").catch(() => ({ inferMuscleGroup: () => "Other" }));
+      const libEx = await storage.createLibraryExercise({
+        title: ex.title,
+        description: ex.description ?? "",
+        muscleGroup: ex.muscleGroup ?? "Other",
+        defaultSets: ex.sets ?? null,
+        defaultReps: ex.reps ?? null,
+        durationSeconds: ex.durationSeconds ?? null,
+        notes: ex.notes ?? null,
+        videoUrl: ex.videoUrl ?? null,
+        videoFilename: ex.videoFilename ?? null,
+      });
+      res.json(libEx);
+    } catch (err: any) { res.status(500).json({ error: err.message || "Failed to save" }); }
+  });
+
   // ─── EXERCISE LIBRARY ────────────────────────────────────────────────────────
   app.get("/api/library", requireCoach, async (_req, res) => {
     try {

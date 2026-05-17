@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube, BookOpen, Search, GripVertical, Unlink } from "lucide-react";
+import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube, BookOpen, Search, GripVertical, Unlink, Library } from "lucide-react";
 import { format } from "date-fns";
 import { inferMuscleGroup } from "@/components/MuscleMap";
 
@@ -74,6 +74,18 @@ export default function CoachSchedules() {
       toast({ title: "Schedule created" });
     },
     onError: () => toast({ title: "Error", description: "Failed to create schedule", variant: "destructive" }),
+  });
+
+  const saveToLibraryMut = useMutation({
+    mutationFn: async (exerciseId: number) => {
+      const res = await apiRequest("POST", `/api/exercises/${exerciseId}/save-to-library`, {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/library"] });
+      toast({ title: data.alreadyExists ? "Already in library" : "Saved to library", description: data.title });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to save to library", variant: "destructive" }),
   });
 
   const toggleStatusMut = useMutation({
@@ -279,6 +291,7 @@ export default function CoachSchedules() {
                 deleteExercise={(exId) => deleteExerciseMut.mutate({ exerciseId: exId, scheduleId: schedule.id })}
                 editExercise={(ex) => openEditExercise(ex)}
                 playVideo={(ex) => setVideoEx(ex)}
+                saveToLibrary={(exId) => saveToLibraryMut.mutate(exId)}
               />
             ))}
           </div>
@@ -635,7 +648,7 @@ function AddExerciseDialog({ scheduleId, exerciseForm, setExerciseForm, videoMod
   );
 }
 
-function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, onAssign, deleteExercise, editExercise, playVideo }: any) {
+function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, onAssign, deleteExercise, editExercise, playVideo, saveToLibrary }: any) {
   const { data: exercises = [] } = useQuery<any[]>({
     queryKey: [`/api/schedules/${schedule.id}/exercises`],
     enabled: expanded,
@@ -644,6 +657,11 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
     queryKey: [`/api/schedules/${schedule.id}/clients`],
     enabled: expanded,
   });
+  const { data: libraryItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/library"],
+    enabled: expanded,
+  });
+  const libraryTitles = new Set((libraryItems as any[]).map((l: any) => l.title.toLowerCase()));
   const { toast } = useToast();
   // null = nothing being dragged over; -1 = empty schedule drop zone
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
@@ -965,6 +983,18 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
                               <Link2 className="w-3.5 h-3.5" />
                             </button>
                           )}
+                          {/* Save to Library button — shows bookmark icon, greyed out if already in library */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); saveToLibrary(ex.id); }}
+                            className={`p-1.5 rounded transition-colors ${
+                              libraryTitles.has(ex.title.toLowerCase())
+                                ? "text-primary/40 cursor-default"
+                                : "hover:text-primary"
+                            }`}
+                            title={libraryTitles.has(ex.title.toLowerCase()) ? "Already in library" : "Save to library"}
+                          >
+                            <Library className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             onClick={() => editExercise({ ...ex, scheduleId: schedule.id })}
                             className="p-1.5 rounded hover:text-primary"
