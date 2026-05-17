@@ -21,6 +21,14 @@ function ClientCardio({ clientId }: { clientId: number }) {
     <div className="text-xs text-muted-foreground italic px-1">No cardio logged yet.</div>
   );
 
+  // KPI totals
+  const totalSessions = sessions.length;
+  const totalMinutes = sessions.reduce((s: number, c: any) => s + (c.durationMinutes || 0), 0);
+  const totalKm = sessions.reduce((s: number, c: any) => s + (Number(c.distanceKm) || 0), 0);
+  const totalCal = sessions.reduce((s: number, c: any) => s + (c.caloriesBurned || 0), 0);
+  const weeklyGoalMin = 150;
+  const cardioProgress = Math.min(100, Math.round((totalMinutes / weeklyGoalMin) * 100));
+
   // Group by day
   const byDay: Record<number, any[]> = {};
   sessions.forEach((s: any) => {
@@ -30,7 +38,44 @@ function ClientCardio({ clientId }: { clientId: number }) {
   });
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Cardio KPI summary */}
+      <div className="rounded-lg border border-blue-400/30 bg-blue-50/10 dark:bg-blue-950/10 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-blue-500 uppercase tracking-wide">Cardio KPIs</span>
+          <span className="text-xs text-muted-foreground">{cardioProgress}% of 150 min goal</span>
+        </div>
+        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+          <div
+            className="h-1.5 rounded-full transition-all"
+            style={{ width: `${cardioProgress}%`, background: cardioProgress >= 100 ? "#22c55e" : "#3b82f6" }}
+          />
+        </div>
+        <div className="grid grid-cols-4 gap-1 pt-0.5">
+          <div className="text-center">
+            <div className="text-sm font-bold text-blue-500">{totalSessions}</div>
+            <div className="text-[10px] text-muted-foreground">Sessions</div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm font-bold text-blue-500">{totalMinutes}</div>
+            <div className="text-[10px] text-muted-foreground">Min</div>
+          </div>
+          {totalKm > 0 && (
+            <div className="text-center">
+              <div className="text-sm font-bold text-blue-500">{totalKm.toFixed(1)}</div>
+              <div className="text-[10px] text-muted-foreground">km</div>
+            </div>
+          )}
+          {totalCal > 0 && (
+            <div className="text-center">
+              <div className="text-sm font-bold text-orange-500">{totalCal}</div>
+              <div className="text-[10px] text-muted-foreground">kcal</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sessions by day */}
       {Object.entries(byDay).map(([day, daySessions]) => (
         <div key={day}>
           {Number(day) >= 0 && <div className="text-xs font-semibold text-muted-foreground mb-1">{DAYS[Number(day)]}</div>}

@@ -446,6 +446,15 @@ export default function ClientSchedule() {
         {/* Cardio section for this day */}
         {(() => {
           const dayCardio = cardioSessions.filter((c: any) => c.dayOfWeek === activeDay && c.scheduleId === scheduleId);
+          // Weekly KPI totals
+          const allCardio = cardioSessions.filter((c: any) => c.scheduleId === scheduleId);
+          const totalSessions = allCardio.length;
+          const totalMinutes = allCardio.reduce((s: number, c: any) => s + (c.durationMinutes || 0), 0);
+          const totalKm = allCardio.reduce((s: number, c: any) => s + (c.distanceKm || 0), 0);
+          const totalCal = allCardio.reduce((s: number, c: any) => s + (c.caloriesBurned || 0), 0);
+          // Weekly cardio goal: 150 min (WHO recommendation)
+          const weeklyGoalMin = 150;
+          const cardioProgress = Math.min(100, Math.round((totalMinutes / weeklyGoalMin) * 100));
           return (
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between">
@@ -456,6 +465,48 @@ export default function ClientSchedule() {
                   + Log Cardio
                 </Button>
               </div>
+
+              {/* Weekly Cardio KPI */}
+              {totalSessions > 0 && (
+                <Card className="border-blue-500/30 bg-blue-50/10 dark:bg-blue-950/10">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-blue-500 uppercase tracking-wide">Weekly Cardio KPIs</span>
+                      <span className="text-xs text-muted-foreground">{cardioProgress}% of weekly goal</span>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 rounded-full transition-all"
+                        style={{ width: `${cardioProgress}%`, background: cardioProgress >= 100 ? "#22c55e" : "#3b82f6" }}
+                      />
+                    </div>
+                    {/* KPI stats */}
+                    <div className="grid grid-cols-4 gap-2 pt-1">
+                      <div className="text-center">
+                        <div className="text-base font-bold text-blue-500">{totalSessions}</div>
+                        <div className="text-[10px] text-muted-foreground">Sessions</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-base font-bold text-blue-500">{totalMinutes}</div>
+                        <div className="text-[10px] text-muted-foreground">Minutes</div>
+                      </div>
+                      {totalKm > 0 && (
+                        <div className="text-center">
+                          <div className="text-base font-bold text-blue-500">{totalKm.toFixed(1)}</div>
+                          <div className="text-[10px] text-muted-foreground">km</div>
+                        </div>
+                      )}
+                      {totalCal > 0 && (
+                        <div className="text-center">
+                          <div className="text-base font-bold text-orange-500">{totalCal}</div>
+                          <div className="text-[10px] text-muted-foreground">kcal</div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               {dayCardio.length === 0 ? (
                 <p className="text-xs text-muted-foreground pl-1">No cardio logged for {DAYS[activeDay]}.</p>
               ) : (
@@ -637,7 +688,7 @@ export default function ClientSchedule() {
             <div>
               <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Type</Label>
               <div className="grid grid-cols-3 gap-2">
-                {["Treadmill", "Cycling", "Elliptical", "Rowing", "Stairmaster", "Other"].map((t) => (
+                {["Treadmill", "Cycling", "Elliptical", "Rowing", "Stairmaster", "Hyrox", "Other"].map((t) => (
                   <button
                     key={t}
                     onClick={() => setCardioType(t)}
@@ -652,7 +703,7 @@ export default function ClientSchedule() {
               <Input
                 className="mt-2 h-8 text-sm"
                 placeholder="Or type a custom activity…"
-                value={["Treadmill","Cycling","Elliptical","Rowing","Stairmaster","Other"].includes(cardioType) ? "" : cardioType}
+                value={["Treadmill","Cycling","Elliptical","Rowing","Stairmaster","Hyrox","Other"].includes(cardioType) ? "" : cardioType}
                 onChange={(e) => setCardioType(e.target.value)}
               />
             </div>
