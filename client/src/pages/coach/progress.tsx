@@ -152,7 +152,7 @@ function ClientProgressCard({ p, expanded, onToggle }: { p: any; expanded: boole
                     style={{ width: `${cardioPct}%`, background: cardioPct >= 100 ? "#22c55e" : "#3b82f6" }}
                   />
                 </div>
-                <span className="text-xs text-muted-foreground w-8 text-right">{cardioMinutes}m</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{cardioMinutes}m · {cardioPct}%</span>
               </div>
             </div>
           </div>
