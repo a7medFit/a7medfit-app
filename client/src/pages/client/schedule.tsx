@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell, Pencil, Timer, Flame, Bike } from "lucide-react";
+import { CheckCircle2, Circle, Play, ChevronLeft, Weight, Dumbbell, Pencil, Timer, Flame, Bike, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MuscleMap, { inferMuscleGroup } from "@/components/MuscleMap";
 
@@ -185,6 +185,24 @@ export default function ClientSchedule() {
   };
 
   const dayExercises = exercises.filter((e: any) => e.dayOfWeek === activeDay);
+
+  // Group exercises into superset blocks and standalone items for display
+  const dayExerciseGroups: Array<{ type: "single"; ex: any } | { type: "superset"; group: string; exercises: any[] }> = [];
+  const seenGroups = new Set<string>();
+  for (const ex of dayExercises) {
+    if (ex.supersetGroup) {
+      if (!seenGroups.has(ex.supersetGroup)) {
+        seenGroups.add(ex.supersetGroup);
+        dayExerciseGroups.push({
+          type: "superset",
+          group: ex.supersetGroup,
+          exercises: dayExercises.filter((e: any) => e.supersetGroup === ex.supersetGroup),
+        });
+      }
+    } else {
+      dayExerciseGroups.push({ type: "single", ex });
+    }
+  }
   const daysWithExercises = DAYS.map((d, i) => ({ day: d, index: i, count: exercises.filter((e: any) => e.dayOfWeek === i).length })).filter((d) => d.count > 0);
 
   const totalEx = exercises.length;
@@ -267,7 +285,91 @@ export default function ClientSchedule() {
               </CardContent>
             </Card>
           ) : (
-            dayExercises.map((ex: any) => {
+            dayExerciseGroups.map((item, gi) => {
+              if (item.type === "superset") {
+                // Render a superset block
+                const allDone = item.exercises.every((ex: any) => isDone(ex.id));
+                return (
+                  <div key={item.group} className={cn("rounded-xl border-2 border-orange-400/40 overflow-hidden", allDone && "border-green-500/40")}>
+                    {/* Superset header */}
+                    <div className={cn("flex items-center gap-2 px-3 py-1.5 text-xs font-bold", allDone ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-500")}>
+                      <Link2 className="w-3 h-3" />
+                      SUPERSET — {item.exercises.length} exercises back to back
+                    </div>
+                    <div className="divide-y divide-border">
+                      {item.exercises.map((ex: any, ei: number) => {
+                        const done = isDone(ex.id);
+                        const myCompletion = getCompletion(ex.id);
+                        const lastSets = getLastSets(ex.id);
+                        return (
+                          <div key={ex.id} data-testid={`exercise-card-${ex.id}`} className={cn("p-4", done && "bg-green-50/30 dark:bg-green-950/10")}>
+                            <div className="flex items-start gap-3">
+                              <div className="mt-0.5 shrink-0 flex flex-col items-center gap-1">
+                                {done ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Circle className="w-5 h-5 text-muted-foreground/40" />}
+                                {ei < item.exercises.length - 1 && <div className="w-0.5 h-4 bg-orange-400/40 rounded-full" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <h3 className={cn("font-semibold text-sm", done && "text-muted-foreground")}>{ex.title}</h3>
+                                    {(ex.sets || ex.reps || ex.durationSeconds) && (
+                                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                        {ex.sets && <span>{ex.sets} sets</span>}
+                                        {ex.reps && <span>× {ex.reps} reps</span>}
+                                        {ex.durationSeconds && <span>{ex.durationSeconds}s</span>}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {ex.videoUrl && (
+                                      <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setVideoEx(ex)} data-testid={`button-watch-video-${ex.id}`}>
+                                        <Play className="w-3 h-3" /> Watch
+                                      </Button>
+                                    )}
+                                    {done ? (
+                                      <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => openEdit(ex)} data-testid={`button-edit-completion-${ex.id}`}>
+                                        <Pencil className="w-3 h-3" /> Edit
+                                      </Button>
+                                    ) : (
+                                      <Button size="sm" className="h-7 text-xs bg-orange-500 hover:bg-orange-600" onClick={() => openLog(ex)} data-testid={`button-log-exercise-${ex.id}`}>
+                                        Log
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                {ex.description && <p className="text-xs text-muted-foreground mt-2">{ex.description}</p>}
+                                {done && lastSets && (
+                                  <div className="mt-3 space-y-1.5">
+                                    <div className="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground">
+                                      <span>Set</span><span>Reps</span><span>Weight</span>
+                                    </div>
+                                    {lastSets.map((s: any, i: number) => (s.reps || s.weight) && (
+                                      <div key={i} className="grid grid-cols-3 gap-2 text-xs bg-muted/40 rounded px-2 py-1">
+                                        <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                                        <span>{s.reps || "—"} reps</span>
+                                        <span>{s.weight ? `${s.weight} kg` : "—"}</span>
+                                      </div>
+                                    ))}
+                                    {myCompletion?.rating && (
+                                      <div className="text-xs text-muted-foreground mt-1">{"⭐".repeat(myCompletion.rating)} difficulty</div>
+                                    )}
+                                    {myCompletion?.notes && (
+                                      <p className="text-xs text-muted-foreground italic">"{myCompletion.notes}"</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Standalone exercise
+              const ex = item.ex;
               const done = isDone(ex.id);
               const myCompletion = getCompletion(ex.id);
               const lastSets = getLastSets(ex.id);
@@ -317,7 +419,7 @@ export default function ClientSchedule() {
                             <div className="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground">
                               <span>Set</span><span>Reps</span><span>Weight</span>
                             </div>
-                            {lastSets.map((s, i) => (s.reps || s.weight) && (
+                            {lastSets.map((s: any, i: number) => (s.reps || s.weight) && (
                               <div key={i} className="grid grid-cols-3 gap-2 text-xs bg-muted/40 rounded px-2 py-1">
                                 <span className="font-medium text-muted-foreground">#{i + 1}</span>
                                 <span>{s.reps || "—"} reps</span>

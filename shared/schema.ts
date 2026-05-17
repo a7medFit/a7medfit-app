@@ -45,6 +45,8 @@ export const exercises = pgTable("exercises", {
   notes: text("notes"),
   videoUrl: text("video_url"), // uploaded file path or external URL
   videoFilename: text("video_filename"),
+  muscleGroup: text("muscle_group"),
+  supersetGroup: text("superset_group"), // exercises sharing same value on same day = superset
 });
 
 export const insertExerciseSchema = createInsertSchema(exercises).omit({ id: true });

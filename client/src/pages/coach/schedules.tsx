@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube, BookOpen, Search, GripVertical } from "lucide-react";
+import { Plus, Dumbbell, Trash2, Upload, Play, ChevronDown, ChevronUp, Edit3, Users, Link2, Youtube, BookOpen, Search, GripVertical, Unlink } from "lucide-react";
 import { format } from "date-fns";
 import { inferMuscleGroup } from "@/components/MuscleMap";
 
@@ -642,6 +642,8 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
   const [draggingExId, setDraggingExId] = useState<number | null>(null);
   // drop indicator: { dayIndex, beforeExId } — null beforeExId = end of list
   const [dropTarget, setDropTarget] = useState<{ dayIndex: number; beforeExId: number | null } | null>(null);
+  // superset linking: id of the first exercise selected for pairing
+  const [supersetSource, setSupersetSource] = useState<number | null>(null);
 
   // ── Library-card drop (from Library page) ────────────────────────────────
   const handleLibraryDrop = async (e: React.DragEvent, dayIndex: number) => {
@@ -704,6 +706,46 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
     }
   };
 
+  // ── Superset linking ────────────────────────────────────────────────────────
+  const handleSupersetClick = async (ex: any) => {
+    if (supersetSource === null) {
+      // First click: select this exercise as the source
+      setSupersetSource(ex.id);
+      return;
+    }
+    if (supersetSource === ex.id) {
+      // Clicked same exercise: cancel
+      setSupersetSource(null);
+      return;
+    }
+    // Second click: link the two exercises into a superset
+    const src = exercises.find((e: any) => e.id === supersetSource);
+    const tgt = ex;
+    // Generate a group id: reuse existing one or create new
+    const groupId = src?.supersetGroup || tgt?.supersetGroup || `ss_${Date.now()}`;
+    try {
+      await apiRequest("PATCH", `/api/exercises/${supersetSource}`, { supersetGroup: groupId });
+      await apiRequest("PATCH", `/api/exercises/${tgt.id}`, { supersetGroup: groupId });
+      queryClient.invalidateQueries({ queryKey: [`/api/schedules/${schedule.id}/exercises`] });
+      toast({ title: "Superset created", description: `${src?.title} + ${tgt.title}` });
+    } catch {
+      toast({ title: "Error", description: "Failed to create superset", variant: "destructive" });
+    }
+    setSupersetSource(null);
+  };
+
+  const handleRemoveSuperset = async (ex: any) => {
+    try {
+      // Remove all exercises from this superset group
+      const groupMembers = exercises.filter((e: any) => e.supersetGroup && e.supersetGroup === ex.supersetGroup);
+      await Promise.all(groupMembers.map((e: any) => apiRequest("PATCH", `/api/exercises/${e.id}`, { supersetGroup: null })));
+      queryClient.invalidateQueries({ queryKey: [`/api/schedules/${schedule.id}/exercises`] });
+      toast({ title: "Superset removed" });
+    } catch {
+      toast({ title: "Error", description: "Failed to remove superset", variant: "destructive" });
+    }
+  };
+
   // Combined drop handler for a day zone
   const handleDayDrop = (e: React.DragEvent, dayIndex: number, beforeExId: number | null = null) => {
     const isLib = e.dataTransfer.getData("libraryExerciseId");
@@ -751,6 +793,17 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
                   <Users className="w-3 h-3" />{a.user?.name}
                 </Badge>
               ))}
+            </div>
+          )}
+
+          {/* Superset linking mode banner */}
+          {supersetSource !== null && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-primary/10 border border-primary/30 text-sm">
+              <span className="text-primary font-medium">
+                <Link2 className="w-3.5 h-3.5 inline mr-1.5" />
+                Superset mode — tap a second exercise to link it
+              </span>
+              <button onClick={() => setSupersetSource(null)} className="text-xs text-muted-foreground hover:text-foreground underline">Cancel</button>
             </div>
           )}
 
@@ -825,10 +878,15 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
                           const beforeId = isUpperHalf ? ex.id : (dayExs[idx + 1]?.id ?? null);
                           handleDayDrop(e, dayIndex, beforeId);
                         }}
-                        className={`flex items-center justify-between p-3 rounded-lg bg-muted/40 group cursor-grab active:cursor-grabbing transition-opacity ${
+                        className={`flex items-center justify-between p-3 rounded-lg group cursor-grab active:cursor-grabbing transition-all ${
                           draggingExId === ex.id ? "opacity-40" : "opacity-100"
+                        } ${
+                          supersetSource === ex.id ? "ring-2 ring-primary bg-primary/10" : ex.supersetGroup ? "bg-orange-500/8 border border-orange-400/30" : "bg-muted/40"
+                        } ${
+                          supersetSource !== null && supersetSource !== ex.id && !ex.supersetGroup ? "cursor-pointer hover:ring-2 hover:ring-primary/60" : ""
                         }`}
                         data-testid={`exercise-row-${ex.id}`}
+                        onClick={() => { if (supersetSource !== null && supersetSource !== ex.id) handleSupersetClick(ex); }}
                       >
                         {/* Drag handle */}
                         <div className="shrink-0 mr-1 text-muted-foreground/40 hover:text-muted-foreground cursor-grab">
@@ -858,10 +916,33 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
                               )}
                             </div>
                             <MuscleMapBadge title={ex.title} />
+                            {ex.supersetGroup && (
+                              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-500 hidden sm:inline-flex items-center gap-0.5">
+                                <Link2 className="w-2.5 h-2.5" /> SS
+                              </span>
+                            )}
                           </div>
                         </div>
 
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          {/* Superset: unlink if already in group, else link button */}
+                          {ex.supersetGroup ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleRemoveSuperset(ex); }}
+                              className="p-1.5 rounded hover:text-orange-500"
+                              title="Remove superset"
+                            >
+                              <Unlink className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleSupersetClick(ex); }}
+                              className={`p-1.5 rounded hover:text-primary ${supersetSource === ex.id ? "text-primary" : ""}`}
+                              title={supersetSource === null ? "Link as superset" : "Pair with this exercise"}
+                            >
+                              <Link2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={() => editExercise({ ...ex, scheduleId: schedule.id })}
                             className="p-1.5 rounded hover:text-primary"
