@@ -103,6 +103,8 @@ function ClientProgressCard({ p, expanded, onToggle }: { p: any; expanded: boole
   const totalEx = p.scheduleProgress.reduce((a: number, sp: any) => a + sp.totalExercises, 0);
   const doneEx = p.scheduleProgress.reduce((a: number, sp: any) => a + sp.completedExercises, 0);
   const pct = totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
+  // Per-schedule expanded state (second level)
+  const [expandedSchedule, setExpandedSchedule] = useState<number | null>(null);
 
   // Fetch cardio to show bar even when card is collapsed
   const { data: cardioSessions = [] } = useQuery<any[]>({
@@ -131,10 +133,6 @@ function ClientProgressCard({ p, expanded, onToggle }: { p: any; expanded: boole
                 <div className="text-xs text-muted-foreground truncate">{p.client.email}</div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Badge variant="outline" className="text-xs gap-1 whitespace-nowrap">
-                  <CheckCircle2 className="w-3 h-3 text-green-500" />
-                  {doneEx}/{totalEx}
-                </Badge>
                 {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </div>
             </div>
@@ -166,75 +164,79 @@ function ClientProgressCard({ p, expanded, onToggle }: { p: any; expanded: boole
       </CardHeader>
 
       {expanded && (
-        <CardContent className="pt-0 space-y-4">
-          {/* Schedule progress */}
-          {p.scheduleProgress.map((sp: any) => (
-            <div key={sp.schedule.id} className="p-4 rounded-lg bg-muted/30 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  <span className="font-medium text-sm">{sp.schedule.title}</span>
-                </div>
-                <Badge variant={sp.percent >= 100 ? "default" : "secondary"} className="text-xs">
-                  {sp.percent}%
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Progress value={sp.percent} className="h-1.5 flex-1" />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {sp.completedExercises}/{sp.totalExercises} exercises
-                </span>
-              </div>
-
-              {/* Day-by-day breakdown */}
-              {sp.dayBreakdown && sp.dayBreakdown.length > 0 && (
-                <div className="space-y-1 mt-2">
-                  {sp.dayBreakdown.map((day: any) => (
-                    <div key={day.dayIndex} className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-muted-foreground">{DAYS[day.dayIndex]}</span>
-                        <span className="text-xs text-muted-foreground">{day.done}/{day.total}</span>
-                      </div>
-                      {/* Exercises for this day */}
-                      {day.exercises.map((ex: any) => (
-                        <div key={ex.id} className="ml-2 p-2 rounded bg-background border space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${ex.completed ? "text-green-500" : "text-muted-foreground/30"}`} />
-                            <span className="text-xs font-medium">{ex.title}</span>
-                            {ex.sets && <span className="text-xs text-muted-foreground ml-auto">{ex.sets}×{ex.reps} target</span>}
-                          </div>
-
-                          {/* Sets breakdown */}
-                          {ex.setsData && ex.setsData.length > 0 && (
-                            <div className="ml-5 space-y-1">
-                              <div className="grid grid-cols-3 gap-2 text-[11px] font-medium text-muted-foreground/70">
-                                <span>Set</span><span>Reps</span><span>Weight</span>
-                              </div>
-                              {ex.setsData.map((s: any, i: number) => (s.reps || s.weight) && (
-                                <div key={i} className="grid grid-cols-3 gap-2 text-[11px] bg-muted/40 rounded px-1.5 py-0.5">
-                                  <span className="font-medium text-muted-foreground">#{i + 1}</span>
-                                  <span>{s.reps || "—"} reps</span>
-                                  <span>{s.weight ? `${s.weight} kg` : "—"}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Rating & notes */}
-                          {(ex.rating || ex.notes) && (
-                            <div className="ml-5 flex gap-3 text-[11px] text-muted-foreground">
-                              {ex.rating && <span>{"⭐".repeat(ex.rating)} difficulty</span>}
-                              {ex.notes && <span className="italic">"{ex.notes}"</span>}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+        <CardContent className="pt-0 space-y-3">
+          {/* ── Schedule rows — each has its own expand chevron ── */}
+          {p.scheduleProgress.map((sp: any) => {
+            const isSpExpanded = expandedSchedule === sp.schedule.id;
+            return (
+              <div key={sp.schedule.id} className="rounded-lg border bg-muted/20 overflow-hidden">
+                {/* Schedule header row — tap to expand details */}
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setExpandedSchedule(isSpExpanded ? null : sp.schedule.id); }}
+                >
+                  <Calendar className="w-4 h-4 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-sm truncate">{sp.schedule.title}</span>
+                      <Badge variant={sp.percent >= 100 ? "default" : "secondary"} className="text-xs shrink-0">
+                        {sp.completedExercises}/{sp.totalExercises} · {sp.percent}%
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                    <Progress value={sp.percent} className="h-1.5" />
+                  </div>
+                  <div className="shrink-0 ml-1">
+                    {isSpExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                  </div>
+                </button>
+
+                {/* Schedule detail — day-by-day breakdown */}
+                {isSpExpanded && sp.dayBreakdown && sp.dayBreakdown.length > 0 && (
+                  <div className="border-t divide-y">
+                    {sp.dayBreakdown.map((day: any) => (
+                      <div key={day.dayIndex} className="px-4 py-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{DAYS[day.dayIndex]}</span>
+                          <span className="text-xs text-muted-foreground">{day.done}/{day.total}</span>
+                        </div>
+                        {day.exercises.map((ex: any) => (
+                          <div key={ex.id} className="ml-1 p-2 rounded-lg bg-background border space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${ex.completed ? "text-green-500" : "text-muted-foreground/30"}`} />
+                              <span className="text-xs font-medium flex-1">{ex.title}</span>
+                              {ex.sets && <span className="text-xs text-muted-foreground shrink-0">{ex.sets}×{ex.reps}</span>}
+                            </div>
+                            {/* Sets breakdown */}
+                            {ex.setsData && ex.setsData.length > 0 && (
+                              <div className="ml-5 space-y-1">
+                                <div className="grid grid-cols-3 gap-2 text-[11px] font-medium text-muted-foreground/70">
+                                  <span>Set</span><span>Reps</span><span>Weight</span>
+                                </div>
+                                {ex.setsData.map((s: any, i: number) => (s.reps || s.weight) && (
+                                  <div key={i} className="grid grid-cols-3 gap-2 text-[11px] bg-muted/40 rounded px-1.5 py-0.5">
+                                    <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                                    <span>{s.reps || "—"} reps</span>
+                                    <span>{s.weight ? `${s.weight} kg` : "—"}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {(ex.rating || ex.notes) && (
+                              <div className="ml-5 flex gap-3 text-[11px] text-muted-foreground">
+                                {ex.rating && <span>{"⭐".repeat(ex.rating)} difficulty</span>}
+                                {ex.notes && <span className="italic">"{ex.notes}"</span>}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {/* Cardio sessions */}
           <div className="p-4 rounded-lg bg-blue-50/30 dark:bg-blue-950/10 border border-blue-200/20 space-y-2">
