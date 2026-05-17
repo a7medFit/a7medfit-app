@@ -17,6 +17,13 @@ import MuscleMap, { inferMuscleGroup } from "@/components/MuscleMap";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+const MUSCLE_COLORS: Record<string, string> = {
+  Chest: "#f97316", Back: "#3b82f6", Shoulders: "#a855f7", Biceps: "#ec4899",
+  Triceps: "#14b8a6", Abs: "#f59e0b", Quadriceps: "#22c55e", Hamstrings: "#84cc16",
+  Calves: "#06b6d4", Glutes: "#f43f5e", Forearms: "#f59e0b", Legs: "#22c55e",
+  Core: "#f59e0b", "Full Body": "#94a3b8", Other: "#94a3b8",
+};
+
 function isYouTube(url: string) {
   return url.includes("youtube.com") || url.includes("youtu.be");
 }
@@ -198,7 +205,9 @@ export default function ClientSchedule() {
     try { return JSON.parse(c.setsData); } catch { return null; }
   };
 
-  const dayExercises = exercises.filter((e: any) => e.dayOfWeek === activeDay);
+  const dayExercises = exercises
+    .filter((e: any) => e.dayOfWeek === activeDay)
+    .sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
 
   // Group exercises into superset blocks and standalone items for display
   const dayExerciseGroups: Array<{ type: "single"; ex: any } | { type: "superset"; group: string; exercises: any[] }> = [];
@@ -332,13 +341,14 @@ export default function ClientSchedule() {
                                 <div className="flex items-start justify-between gap-2">
                                   <div>
                                     <h3 className={cn("font-semibold text-sm", done && "text-muted-foreground")}>{ex.title}</h3>
-                                    {(ex.sets || ex.reps || ex.durationSeconds) && (
-                                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                        {ex.sets && <span>{ex.sets} sets</span>}
-                                        {ex.reps && <span>× {ex.reps} reps</span>}
-                                        {ex.durationSeconds && <span>{ex.durationSeconds}s</span>}
-                                      </div>
-                                    )}
+                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                      {(() => { const mg = ex.muscleGroup || inferMuscleGroup(ex.title); return <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: (MUSCLE_COLORS[mg] ?? "#94a3b8") + "22", color: MUSCLE_COLORS[mg] ?? "#94a3b8" }}>{mg}</span>; })()}
+                                      {(ex.sets || ex.reps || ex.durationSeconds) && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {[ex.sets && `${ex.sets} sets`, ex.reps && `× ${ex.reps} reps`, ex.durationSeconds && `${ex.durationSeconds}s`].filter(Boolean).join(" ")}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     {ex.videoUrl && (
@@ -404,13 +414,14 @@ export default function ClientSchedule() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <h3 className={cn("font-semibold text-sm", done && "text-muted-foreground")}>{ex.title}</h3>
-                            {(ex.sets || ex.reps || ex.durationSeconds) && (
-                              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                {ex.sets && <span>{ex.sets} sets</span>}
-                                {ex.reps && <span>× {ex.reps} reps</span>}
-                                {ex.durationSeconds && <span>{ex.durationSeconds}s</span>}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {(() => { const mg = ex.muscleGroup || inferMuscleGroup(ex.title); return <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: (MUSCLE_COLORS[mg] ?? "#94a3b8") + "22", color: MUSCLE_COLORS[mg] ?? "#94a3b8" }}>{mg}</span>; })()}
+                              {(ex.sets || ex.reps || ex.durationSeconds) && (
+                                <span className="text-xs text-muted-foreground">
+                                  {[ex.sets && `${ex.sets} sets`, ex.reps && `× ${ex.reps} reps`, ex.durationSeconds && `${ex.durationSeconds}s`].filter(Boolean).join(" ")}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {ex.videoUrl && (
@@ -562,10 +573,16 @@ export default function ClientSchedule() {
             <DialogTitle>{editingCompletionId !== null ? "Edit Entry" : "Log"}: {logExercise?.title}</DialogTitle>
           </DialogHeader>
           {logExercise && (() => {
-            const mg = inferMuscleGroup(logExercise.title);
+            const mg = logExercise.muscleGroup || inferMuscleGroup(logExercise.title);
             return (
               <div className="flex items-center gap-3 px-1 pb-1">
                 <MuscleMap muscleGroup={mg} size={80} />
+                <div>
+                  <span
+                    className="text-xs font-semibold px-2 py-1 rounded-full"
+                    style={{ backgroundColor: MUSCLE_COLORS[mg] + "22", color: MUSCLE_COLORS[mg] ?? "#94a3b8" }}
+                  >{mg}</span>
+                </div>
               </div>
             );
           })()}
