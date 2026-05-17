@@ -805,22 +805,26 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
 
   return (
     <Card data-testid={`schedule-card-${schedule.id}`}>
-      <CardHeader className="pb-3 cursor-pointer" onClick={onToggle}>
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          {/* Left: tap to expand/collapse */}
+          <div className="flex items-center gap-3 flex-1 cursor-pointer py-1 pr-4 min-w-0" onClick={onToggle}>
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Dumbbell className="w-4 h-4 text-primary" />
             </div>
-            <div>
+            <div className="min-w-0">
               <CardTitle className="text-base">{schedule.title}</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">Week of {schedule.weekStart} · {exercises.length} exercises</p>
             </div>
+            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 ml-1" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 ml-1" />}
           </div>
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {/* Right: status dropdown — completely isolated from expand toggle */}
+          <div className="shrink-0">
             <select
               value={schedule.status}
-              onChange={(e) => toggleStatusMut.mutate({ id: schedule.id, status: e.target.value })}
-              className={`text-[11px] font-semibold px-2 py-1 rounded-full border cursor-pointer outline-none transition-colors ${
+              onChange={(e) => { e.stopPropagation(); toggleStatusMut.mutate({ id: schedule.id, status: e.target.value }); }}
+              onClick={(e) => e.stopPropagation()}
+              className={`text-[11px] font-semibold px-2 py-1.5 rounded-full border cursor-pointer outline-none transition-colors ${
                 schedule.status === "active"
                   ? "bg-green-500/15 text-green-600 border-green-500/30"
                   : "bg-muted text-muted-foreground border-border"
@@ -829,7 +833,6 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
               <option value="active">● Active</option>
               <option value="inactive">○ Inactive</option>
             </select>
-            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </div>
         </div>
       </CardHeader>
