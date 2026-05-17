@@ -268,11 +268,31 @@ export default function ClientSchedule() {
             </div>
             <Badge variant={pct >= 100 ? "default" : "secondary"} className="shrink-0">{pct}% done</Badge>
           </div>
-          <div className="mt-4 flex items-center gap-3">
-            <div className="flex-1 bg-muted rounded-full h-2">
-              <div className="h-2 rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} data-testid="progress-bar" />
+          <div className="mt-4 space-y-2">
+            {/* Exercises progress bar */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 bg-muted rounded-full h-2">
+                <div className="h-2 rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} data-testid="progress-bar" />
+              </div>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{doneEx}/{totalEx} exercises</span>
             </div>
-            <span className="text-xs text-muted-foreground whitespace-nowrap">{doneEx}/{totalEx} exercises</span>
+            {/* Cardio progress bar */}
+            {(() => {
+              const allCardio = cardioSessions.filter((c: any) => c.scheduleId === scheduleId);
+              const totalMinutes = allCardio.reduce((s: number, c: any) => s + (c.durationMinutes || 0), 0);
+              const cardioProgress = Math.min(100, Math.round((totalMinutes / 150) * 100));
+              return (
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-muted rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${cardioProgress}%`, background: cardioProgress >= 100 ? "#22c55e" : "#3b82f6" }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">{totalMinutes}/150 min cardio</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
