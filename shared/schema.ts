@@ -77,6 +77,7 @@ export const clientSchedules = pgTable("client_schedules", {
   clientId: integer("client_id").notNull(),
   scheduleId: integer("schedule_id").notNull(),
   assignedAt: text("assigned_at").notNull(),
+  startDate: text("start_date"), // date client starts the schedule (week day 0 = this date's weekday)
 });
 
 export const insertClientScheduleSchema = createInsertSchema(clientSchedules).omit({ id: true });

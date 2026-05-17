@@ -76,6 +76,15 @@ export default function CoachSchedules() {
     onError: () => toast({ title: "Error", description: "Failed to create schedule", variant: "destructive" }),
   });
 
+  const toggleStatusMut = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/schedules/${id}`, { status });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/schedules"] }),
+    onError: () => toast({ title: "Error", description: "Failed to update schedule status", variant: "destructive" }),
+  });
+
   const deleteScheduleMut = useMutation({
     mutationFn: async (id: number) => {
       const res = await apiRequest("DELETE", `/api/schedules/${id}`);
@@ -168,8 +177,8 @@ export default function CoachSchedules() {
   });
 
   const assignMut = useMutation({
-    mutationFn: async ({ scheduleId, clientId }: { scheduleId: number; clientId: number }) => {
-      const res = await apiRequest("POST", `/api/schedules/${scheduleId}/clients`, { clientId });
+    mutationFn: async ({ scheduleId, clientId, startDate }: { scheduleId: number; clientId: number; startDate?: string }) => {
+      const res = await apiRequest("POST", `/api/schedules/${scheduleId}/clients`, { clientId, startDate });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.error || "Failed to assign");
@@ -418,7 +427,7 @@ export default function CoachSchedules() {
             <DialogHeader>
               <DialogTitle>Assign Clients</DialogTitle>
             </DialogHeader>
-            {assignOpen !== null && <AssignClientsPanel scheduleId={assignOpen} clients={clients} onAssign={(cid) => assignMut.mutate({ scheduleId: assignOpen, clientId: cid })} onUnassign={(cid) => unassignMut.mutate({ scheduleId: assignOpen, clientId: cid })} />}
+            {assignOpen !== null && <AssignClientsPanel scheduleId={assignOpen} clients={clients} onAssign={(cid: number, startDate: string) => assignMut.mutate({ scheduleId: assignOpen, clientId: cid, startDate })} onUnassign={(cid: number) => unassignMut.mutate({ scheduleId: assignOpen, clientId: cid })} />}
           </DialogContent>
         </Dialog>
       </div>
@@ -775,7 +784,20 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={schedule.status === "active" ? "default" : "secondary"} className="text-xs">{schedule.status}</Badge>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleStatusMut.mutate({ id: schedule.id, status: schedule.status === "active" ? "inactive" : "active" });
+              }}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors ${
+                schedule.status === "active"
+                  ? "bg-green-500/15 text-green-600 border-green-500/30 hover:bg-red-500/15 hover:text-red-500 hover:border-red-400/30"
+                  : "bg-muted text-muted-foreground border-border hover:bg-green-500/15 hover:text-green-600 hover:border-green-500/30"
+              }`}
+              title={schedule.status === "active" ? "Click to deactivate" : "Click to activate"}
+            >
+              {schedule.status === "active" ? "● Active" : "○ Inactive"}
+            </button>
             {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </div>
         </div>
@@ -1022,6 +1044,9 @@ function ScheduleCard({ schedule, expanded, onToggle, onDelete, onAddExercise, o
 function AssignClientsPanel({ scheduleId, clients, onAssign, onUnassign }: any) {
   const { data: assignments = [] } = useQuery<any[]>({ queryKey: [`/api/schedules/${scheduleId}/clients`] });
   const assignedIds = assignments.map((a: any) => a.clientId);
+  // Per-client start date state
+  const [startDates, setStartDates] = useState<Record<number, string>>({});
+  const today = format(new Date(), "yyyy-MM-dd");
 
   return (
     <div className="space-y-3 pt-2 max-h-[60vh] overflow-y-auto pr-1">
@@ -1030,19 +1055,37 @@ function AssignClientsPanel({ scheduleId, clients, onAssign, onUnassign }: any) 
       ) : (
         clients.map((client: any) => {
           const isAssigned = assignedIds.includes(client.id);
+          const assignment = assignments.find((a: any) => a.clientId === client.id);
           return (
-            <div key={client.id} className="flex items-center justify-between p-3 rounded-lg border" data-testid={`assign-client-${client.id}`}>
-              <div>
-                <div className="font-medium text-sm">{client.name}</div>
-                <div className="text-xs text-muted-foreground">{client.email}</div>
+            <div key={client.id} className="p-3 rounded-lg border space-y-2" data-testid={`assign-client-${client.id}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-sm">{client.name}</div>
+                  <div className="text-xs text-muted-foreground">{client.email}</div>
+                  {isAssigned && assignment?.startDate && (
+                    <div className="text-xs text-primary mt-0.5">Started: {assignment.startDate}</div>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant={isAssigned ? "destructive" : "default"}
+                  onClick={() => isAssigned ? onUnassign(client.id) : onAssign(client.id, startDates[client.id] || today)}
+                >
+                  {isAssigned ? "Remove" : "Assign"}
+                </Button>
               </div>
-              <Button
-                size="sm"
-                variant={isAssigned ? "destructive" : "default"}
-                onClick={() => isAssigned ? onUnassign(client.id) : onAssign(client.id)}
-              >
-                {isAssigned ? "Remove" : "Assign"}
-              </Button>
+              {/* Start date picker — only show for unassigned clients */}
+              {!isAssigned && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground whitespace-nowrap">Start date:</label>
+                  <Input
+                    type="date"
+                    className="h-7 text-xs flex-1"
+                    value={startDates[client.id] || today}
+                    onChange={(e) => setStartDates({ ...startDates, [client.id]: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
           );
         })

@@ -50,7 +50,21 @@ export default function ClientSchedule() {
   const [sets, setSets] = useState<SetRow[]>([{ reps: "", weight: "" }, { reps: "", weight: "" }, { reps: "", weight: "" }]);
   const [notes, setNotes] = useState("");
   const [rating, setRating] = useState("");
-  const [activeDay, setActiveDay] = useState(new Date().getDay());
+  // Compute active day: if the client has a startDate, day 0 of the schedule = the weekday of startDate
+  // We find which schedule day corresponds to "today" by offsetting from startDate
+  const { data: myAssignments = [] } = useQuery<any[]>({ queryKey: ["/api/my-assignment"] });
+  const myAssignment = (myAssignments as any[]).find((a: any) => a.scheduleId === scheduleId);
+  const computeActiveDay = () => {
+    if (myAssignment?.startDate) {
+      const start = new Date(myAssignment.startDate);
+      const today = new Date();
+      const diffDays = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      // diffDays % 7 gives offset within the week (0-6)
+      return ((diffDays % 7) + 7) % 7;
+    }
+    return new Date().getDay();
+  };
+  const [activeDay, setActiveDay] = useState(computeActiveDay);
   const [videoEx, setVideoEx] = useState<any | null>(null);
   const [lastSessionData, setLastSessionData] = useState<SetRow[] | null>(null);
   const [cardioOpen, setCardioOpen] = useState(false);
@@ -236,6 +250,12 @@ export default function ClientSchedule() {
             <div>
               <h1 className="text-xl font-bold">{schedule.title}</h1>
               {schedule.description && <p className="text-muted-foreground text-sm mt-1">{schedule.description}</p>}
+              {myAssignment?.startDate && (() => {
+                const start = new Date(myAssignment.startDate);
+                const today = new Date();
+                const dayNum = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                return dayNum > 0 ? <p className="text-xs text-primary font-medium mt-1">Day {dayNum} of your program</p> : null;
+              })()}
             </div>
             <Badge variant={pct >= 100 ? "default" : "secondary"} className="shrink-0">{pct}% done</Badge>
           </div>

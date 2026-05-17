@@ -275,6 +275,19 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // Returns the client's own assignment row (includes startDate)
+  app.get("/api/my-assignment", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { db, clientSchedules } = await import("./db");
+      const { eq } = await import("drizzle-orm");
+      const result = await db.select().from(clientSchedules).where(eq(clientSchedules.clientId, user.id));
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get assignment" });
+    }
+  });
+
   app.get("/api/schedules/:id", requireAuth, async (req, res) => {
     try {
       const s = await storage.getScheduleById(Number(req.params.id));
@@ -424,7 +437,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   app.post("/api/schedules/:id/clients", requireCoach, async (req, res) => {
     try {
-      const { clientId } = req.body;
+      const { clientId, startDate } = req.body;
       const existing = await storage.getClientAssignments(Number(req.params.id));
       if (existing.find((a) => a.clientId === clientId)) {
         return res.status(409).json({ error: "Already assigned" });
@@ -433,6 +446,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
         clientId: Number(clientId),
         scheduleId: Number(req.params.id),
         assignedAt: new Date().toISOString(),
+        startDate: startDate || null,
       });
       res.json(a);
     } catch (err) {
