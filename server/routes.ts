@@ -374,6 +374,13 @@ export function registerRoutes(httpServer: Server, app: Express) {
       if (body.dayOfWeek !== undefined) body.dayOfWeek = parseInt(body.dayOfWeek);
       if (body.orderIndex !== undefined) body.orderIndex = parseInt(body.orderIndex);
 
+      // Auto-fill muscleGroup from library if not provided
+      if (!body.muscleGroup && body.title) {
+        const libExercises = await storage.getLibraryExercises();
+        const match = libExercises.find((l) => l.title.toLowerCase().trim() === body.title.toLowerCase().trim());
+        if (match?.muscleGroup) body.muscleGroup = match.muscleGroup;
+      }
+
       const parsed = insertExerciseSchema.safeParse(body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
       res.json(await storage.createExercise(parsed.data));
