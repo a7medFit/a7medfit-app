@@ -377,7 +377,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
       // Auto-fill muscleGroup from library if not provided
       if (!body.muscleGroup && body.title) {
         const libExercises = await storage.getLibraryExercises();
-        const match = libExercises.find((l) => l.title.toLowerCase().trim() === body.title.toLowerCase().trim());
+        const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+        const match = libExercises.find((l) => normalize(l.title) === normalize(body.title));
         if (match?.muscleGroup) body.muscleGroup = match.muscleGroup;
       }
 
